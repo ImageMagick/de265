@@ -50,6 +50,9 @@
 #include "visualize.h"
 #endif
 
+#undef min
+#undef max
+
 extern void thread_decode_CTB_row(void* d);
 extern void thread_decode_slice_segment(void* d);
 

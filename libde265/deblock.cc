@@ -25,7 +25,7 @@
 
 #include <assert.h>
 
-
+#undef min
 
 // 8.7.2.1 for both EDGE_HOR and EDGE_VER at the same time
 void markTransformBlockBoundary(de265_image* img, int x0,int y0,

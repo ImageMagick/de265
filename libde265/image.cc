@@ -33,6 +33,8 @@
 #include <malloc.h>
 #endif
 
+#undef max
+
 #ifdef HAVE_SSE4_1
 #define MEMORY_PADDING  8
 #else
