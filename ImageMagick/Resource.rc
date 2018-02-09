@@ -28,7 +28,7 @@ BEGIN
         BEGIN
             VALUE "ProductName", "libde265 library\0"
             VALUE "FileDescription", "ImageMagick Studio library and utility programs\0"
-            VALUE "OriginalFilename", "webp\0"
+            VALUE "OriginalFilename", "libde265\0"
             VALUE "InternalName", "ImageMagick Studio\0"
             VALUE "FileVersion", THIS_PROJECT_VERSION_STRING "\0"
             VALUE "ProductVersion", THIS_PROJECT_VERSION_STRING "\0"
