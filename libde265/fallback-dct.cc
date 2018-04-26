@@ -22,7 +22,7 @@
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
 # include <malloc.h>
-#else
+#elif defined(HAVE_ALLOCA_H)
 # include <alloca.h>
 #endif
 
@@ -959,8 +959,6 @@ static void transform_fdct_8(int16_t* coeffs, int nT,
         sum += mat_dct[fact*i][j] * input[c+j*stride];
       }
 
-      //assert((sum+rnd1)>>shift1 <=  32767);
-      //assert((sum+rnd1)>>shift1 >= -32768);
       g[c+i*nT] = (sum+rnd1)>>shift1; // clipping to -32768;32767 unnecessary
     }
   }

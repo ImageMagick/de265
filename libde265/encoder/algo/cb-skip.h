@@ -25,7 +25,6 @@
 
 #include "libde265/nal-parser.h"
 #include "libde265/decctx.h"
-#include "libde265/encoder/encode.h"
 #include "libde265/slice.h"
 #include "libde265/scan.h"
 #include "libde265/intrapred.h"
@@ -53,6 +52,8 @@ class Algo_CB_Skip : public Algo_CB
 
   void setNonSkipAlgo(Algo_CB* algo) { mNonSkipAlgo = algo; }
 
+  const char* name() const { return "cb-skip"; }
+
  protected:
   Algo_CB_MergeIndex* mSkipAlgo;
   Algo_CB*            mNonSkipAlgo;
@@ -64,6 +65,8 @@ class Algo_CB_Skip_BruteForce : public Algo_CB_Skip
   virtual enc_cb* analyze(encoder_context*,
                           context_model_table&,
                           enc_cb* cb);
+
+  const char* name() const { return "cb-skip-bruteforce"; }
 };
 
 #endif

@@ -21,7 +21,6 @@
  */
 
 #include "encoder/encoder-context.h"
-#include "encoder/analyze.h"
 #include "libde265/util.h"
 
 #include <math.h>
@@ -30,6 +29,10 @@
 encoder_context::encoder_context()
 {
   encoder_started=false;
+
+  vps = std::make_shared<video_parameter_set>();
+  sps = std::make_shared<seq_parameter_set>();
+  pps = std::make_shared<pic_parameter_set>();
 
   //img_source = NULL;
   //reconstruction_sink = NULL;
@@ -126,33 +129,43 @@ de265_error encoder_context::encode_headers()
 
   // VPS
 
-  vps.set_defaults(Profile_Main, 6,2);
+  vps->set_defaults(Profile_Main, 6,2);
 
 
   // SPS
 
-  sps.set_defaults();
-  sps.set_CB_log2size_range( Log2(params.min_cb_size), Log2(params.max_cb_size));
-  sps.set_TB_log2size_range( Log2(params.min_tb_size), Log2(params.max_tb_size));
-  sps.max_transform_hierarchy_depth_intra = params.max_transform_hierarchy_depth_intra;
+  sps->set_defaults();
+  sps->set_CB_log2size_range( Log2(params.min_cb_size), Log2(params.max_cb_size));
+  sps->set_TB_log2size_range( Log2(params.min_tb_size), Log2(params.max_tb_size));
+  sps->max_transform_hierarchy_depth_intra = params.max_transform_hierarchy_depth_intra;
+  sps->max_transform_hierarchy_depth_inter = params.max_transform_hierarchy_depth_inter;
 
-  sps.set_resolution(image_width, image_height);
+  if (imgdata->input->get_chroma_format() == de265_chroma_444) {
+    sps->chroma_format_idc = CHROMA_444;
+  }
+
+  sps->set_resolution(image_width, image_height);
   sop->set_SPS_header_values();
-  sps.compute_derived_values();
+  de265_error err = sps->compute_derived_values(true);
+  if (err != DE265_OK) {
+    fprintf(stderr,"invalid SPS parameters\n");
+    exit(10);
+  }
 
 
   // PPS
 
-  pps.set_defaults();
-  pps.pic_init_qp = algo.getPPS_QP();
+  pps->set_defaults();
+  pps->sps = sps.get();
+  pps->pic_init_qp = algo.getPPS_QP();
 
   // turn off deblocking filter
-  pps.deblocking_filter_control_present_flag = true;
-  pps.deblocking_filter_override_enabled_flag = false;
-  pps.pic_disable_deblocking_filter_flag = true;
-  pps.pps_loop_filter_across_slices_enabled_flag = false;
+  pps->deblocking_filter_control_present_flag = true;
+  pps->deblocking_filter_override_enabled_flag = false;
+  pps->pic_disable_deblocking_filter_flag = true;
+  pps->pps_loop_filter_across_slices_enabled_flag = false;
 
-  pps.set_derived_values(&sps);
+  pps->set_derived_values(sps.get());
 
 
 
@@ -162,7 +175,7 @@ de265_error encoder_context::encode_headers()
 
   nal.set(NAL_UNIT_VPS_NUT);
   nal.write(cabac_encoder);
-  vps.write(this, cabac_encoder);
+  vps->write(this, cabac_encoder);
   cabac_encoder.add_trailing_bits();
   cabac_encoder.flush_VLC();
   pck = create_packet(EN265_PACKET_VPS);
@@ -171,7 +184,7 @@ de265_error encoder_context::encode_headers()
 
   nal.set(NAL_UNIT_SPS_NUT);
   nal.write(cabac_encoder);
-  sps.write(this, cabac_encoder);
+  sps->write(this, cabac_encoder);
   cabac_encoder.add_trailing_bits();
   cabac_encoder.flush_VLC();
   pck = create_packet(EN265_PACKET_SPS);
@@ -180,7 +193,7 @@ de265_error encoder_context::encode_headers()
 
   nal.set(NAL_UNIT_PPS_NUT);
   nal.write(cabac_encoder);
-  pps.write(this, cabac_encoder, &sps);
+  pps->write(this, cabac_encoder, sps.get());
   cabac_encoder.add_trailing_bits();
   cabac_encoder.flush_VLC();
   pck = create_packet(EN265_PACKET_PPS);
@@ -207,6 +220,8 @@ de265_error encoder_context::encode_picture_from_input_buffer()
     image_width  = id->input->get_width();
     image_height = id->input->get_height();
     image_spec_is_defined = true;
+
+    ctbs.alloc(image_width, image_height, Log2(params.max_cb_size));
   }
 
 
@@ -224,11 +239,6 @@ de265_error encoder_context::encode_picture_from_input_buffer()
   }
 
 
-  if (!headers_have_been_sent) {
-    encode_headers();
-  }
-
-
 
 
 
@@ -242,18 +252,27 @@ de265_error encoder_context::encode_picture_from_input_buffer()
   loginfo(LogEncoder,"encoding frame %d\n",imgdata->frame_number);
 
 
+  // write headers if not written yet
+
+  if (!headers_have_been_sent) {
+    encode_headers();
+  }
+
+
   // write slice header
 
   // slice
 
   imgdata->shdr.slice_deblocking_filter_disabled_flag = true;
   imgdata->shdr.slice_loop_filter_across_slices_enabled_flag = false;
-  imgdata->shdr.compute_derived_values(&pps);
+  imgdata->shdr.compute_derived_values(pps.get());
+
+  imgdata->shdr.pps = &get_pps();
 
   //shdr.slice_pic_order_cnt_lsb = poc & 0xFF;
 
   imgdata->nal.write(cabac_encoder);
-  imgdata->shdr.write(this, cabac_encoder, &sps, &pps, imgdata->nal.nal_unit_type);
+  imgdata->shdr.write(this, cabac_encoder, sps.get(), pps.get(), imgdata->nal.nal_unit_type);
   cabac_encoder.add_trailing_bits();
   cabac_encoder.flush_VLC();
 

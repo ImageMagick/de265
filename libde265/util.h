@@ -21,11 +21,16 @@
 #ifndef DE265_UTIL_H
 #define DE265_UTIL_H
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifndef _MSC_VER
 #include <inttypes.h>
 #endif
 
 #include <stdio.h>
+#include <string>
 
 #include "libde265/de265.h"
 
@@ -51,6 +56,9 @@
 #define LIBDE265_CHECK_RESULT
 #endif
 
+// Be careful with these alignment instructions. They only specify the alignment within
+// a struct. But they cannot make sure that the base address of the struct has the same alignment
+// when it is dynamically allocated.
 #define ALIGNED_32( var ) LIBDE265_DECLARE_ALIGNED( var, 32 )
 #define ALIGNED_16( var ) LIBDE265_DECLARE_ALIGNED( var, 16 )
 #define ALIGNED_8( var )  LIBDE265_DECLARE_ALIGNED( var, 8 )
@@ -70,8 +78,22 @@
 namespace std { using namespace std::tr1; }
 #endif
 
-#if __GNUC__ && GCC_VERSION < 40600
-// nullptr was introduced in gcc 4.6, a simple alias should be fine for our use case
+#ifdef NEED_STD_MOVE_FALLBACK
+// Provide fallback variant of "std::move" for older compilers with
+// incomplete/broken C++11 support.
+namespace std {
+
+template<typename _Tp>
+inline typename std::remove_reference<_Tp>::type&& move(_Tp&& __t) {
+  return static_cast<typename std::remove_reference<_Tp>::type&&>(__t);
+}
+
+}  // namespace std
+#endif
+
+#ifdef NEED_NULLPTR_FALLBACK
+// Compilers with partial/incomplete support for C++11 don't know about
+// "nullptr". A simple alias should be fine for our use case.
 #define nullptr NULL
 #endif
 
@@ -148,6 +170,7 @@ enum LogModule {
   LogSymbols,
   LogCABAC,
   LogEncoder,
+  LogEncoderMetadata,
   NUMBER_OF_LogModules
 };
 
@@ -181,8 +204,10 @@ void loginfo (enum LogModule module, const char* string, ...);
 
 #ifdef DE265_LOG_DEBUG
 void logdebug(enum LogModule module, const char* string, ...);
+bool logdebug_enabled(enum LogModule module);
 #else
 #define logdebug(a,b, ...) { }
+inline bool logdebug_enabled(enum LogModule module) { return false; }
 #endif
 
 #ifdef DE265_LOG_TRACE
@@ -194,9 +219,9 @@ void logtrace(enum LogModule module, const char* string, ...);
 void log2fh(FILE* fh, const char* string, ...);
 
 
-void printBlk(const char* title,const int32_t* data, int blksize, int stride);
-void printBlk(const char* title,const int16_t* data, int blksize, int stride);
-void printBlk(const char* title,const uint8_t* data, int blksize, int stride);
+void printBlk(const char* title,const int32_t* data, int blksize, int stride, const std::string& prefix="  ");
+void printBlk(const char* title,const int16_t* data, int blksize, int stride, const std::string& prefix="  ");
+void printBlk(const char* title,const uint8_t* data, int blksize, int stride, const std::string& prefix="  ");
 
 void debug_set_image_output(void (*)(const struct de265_image*, int slot));
 void debug_show_image(const struct de265_image*, int slot);

@@ -23,25 +23,28 @@
 #ifndef CODING_OPTIONS_H
 #define CODING_OPTIONS_H
 
-#include "libde265/encoder/encode.h"
+#include "libde265/encoder/encoder-types.h"
 
 
-class CodingOption;
+template <class node> class CodingOption;
 
 
+template <class node>
 class CodingOptions
 {
  public:
-  CodingOptions(encoder_context*, enc_cb*, context_model_table& tab);
+  CodingOptions(encoder_context*, node*, context_model_table& tab);
   ~CodingOptions();
+
+  typedef CodingOption<node> Option;
 
   // --- init --- call before object use
 
-  CodingOption new_option(bool active=true);
+  CodingOption<node> new_option(bool active=true);
 
   enum RateEstimationMethod
   {
-    Rate_Default,
+    Rate_Default,  // take default value from encoder_context
     Rate_AdaptiveContext,
     Rate_FixedContext
   };
@@ -58,27 +61,30 @@ class CodingOptions
   // --- end processing --- do not call any function after this one
 
   /* Return the CB with the lowest RDO cost. All other CBs are destroyed.
-     If the current reconstruction and metadata are not from the returned CB,
-     the data from the returned CB is reconstructed.
+     If the current metadata stored in the image are not from the returned block,
+     its metadata flags are set to zero.
    */
-  enc_cb* return_best_rdo();
+  node* return_best_rdo_node();
 
  private:
   struct CodingOptionData
   {
-    enc_cb* cb;
+    node* mNode;
+
     context_model_table context;
     bool  mOptionActive;
+    bool  computed;
     float rdoCost;
   };
 
 
   encoder_context* mECtx;
 
-  enc_cb* mCBInput;
+  bool mCBMode;
+  node* mInputNode;
+
   context_model_table* mContextModelInput;
 
-  int mCurrentlyReconstructedOption;
   int mBestRDO;
 
   std::vector<CodingOptionData> mOptions;
@@ -87,10 +93,13 @@ class CodingOptions
   CABAC_encoder_estim_constant  cabac_constant;
   CABAC_encoder_estim*          cabac;
 
-  friend class CodingOption;
+  friend class CodingOption<node>;
+
+  int find_best_rdo_index();
 };
 
 
+template <class node>
 class CodingOption
 {
  public:
@@ -99,14 +108,22 @@ class CodingOption
     mOptionIdx = 0;
   }
 
-  enc_cb* get_cb() { return mParent->mOptions[mOptionIdx].cb; }
-  void set_cb(enc_cb* cb) { mParent->mOptions[mOptionIdx].cb = cb; }
+  node* get_node() { return mParent->mOptions[mOptionIdx].mNode; }
+  void set_node(node* _node) {
+    if (_node != mParent->mOptions[mOptionIdx].mNode) {
+      //printf("delete TB %p\n", mParent->mOptions[mOptionIdx].tb);
+      //delete mParent->mOptions[mOptionIdx].mNode;
+    }
+    mParent->mOptions[mOptionIdx].mNode = _node;
+  }
 
   context_model_table& get_context() { return mParent->mOptions[mOptionIdx].context; }
 
+  /** @return True if the option is active.
+   */
   operator bool() const { return mParent; }
 
-  /* When modifying the reconstruction image or metadata, you have to
+  /* When modifying the metadata stored in the image, you have to
      encapsulate the modification between these two functions to ensure
      that the correct reconstruction will be active after return_best_rdo().
    */
@@ -121,13 +138,13 @@ class CodingOption
   float get_cabac_rate() const { return mParent->cabac->getRDBits(); }
 
 private:
-  CodingOption(class CodingOptions* parent, int idx)
+  CodingOption(class CodingOptions<node>* parent, int idx)
     : mParent(parent), mOptionIdx(idx) { }
 
-  class CodingOptions* mParent;
+  class CodingOptions<node>* mParent;
   int   mOptionIdx;
 
-  friend class CodingOptions;
+  friend class CodingOptions<node>;
 };
 
 

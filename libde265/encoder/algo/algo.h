@@ -23,26 +23,47 @@
 #ifndef ALGO_H
 #define ALGO_H
 
-#include "libde265/encoder/encode.h"
+#include "libde265/encoder/encoder-types.h"
 
 
 /* When entering the next recursion level, it is assumed that
    a valid CB structure is passed down. Ownership is transferred to
    the new algorithm. That algorithm passes back a (possibly different)
-   CB structure that the first algorithm should use. The original CB
-   structure might have been deleted in the called algorithm.
+   CB structure that the first algorithm should use. The receiving
+   algorithm will be the owner of the passed back algorithm.
+   The original CB structure might have been deleted in the called algorithm.
+
+   When using CodingOptions, it is important to set the passed back
+   enc_node in the CodingOption (set_node()), so that the CodingOption
+   can correctly handle ownership and delete nodes as needed.
 
    The context_model_table passed down is at the current state.
    When the algorithm returns, the state should represent the state
    after running this algorithm.
-
-   When returning from the algorithm, it is also assumed that the
-   ectx->img content (reconstruction and metadata) represent the
-   current state. When the algorithm tries several variants, it
-   has to restore the state to the selected variant.
  */
 
-class Algo_CB
+class Algo
+{
+ public:
+  virtual ~Algo() { }
+
+  virtual const char* name() const { return "noname"; }
+
+#ifdef DE265_LOG_DEBUG
+  void enter();
+  void descend(const enc_node* node,const char* option_description, ...);
+  void ascend(const enc_node* resultNode=NULL, const char* fmt=NULL, ...);
+  void leaf(const enc_node* node,const char* option_description, ...);
+#else
+  inline void enter() { }
+  inline void descend(const enc_node*,const char*, ...) { }
+  inline void ascend(const enc_node* resultNode=NULL,const char* fmt=NULL, ...) { }
+  inline void leaf(const enc_node*,const char*, ...) { }
+#endif
+};
+
+
+class Algo_CB : public Algo
 {
  public:
   virtual ~Algo_CB() { }
@@ -59,7 +80,7 @@ class Algo_CB
 };
 
 
-class Algo_PB
+class Algo_PB : public Algo
 {
  public:
   virtual ~Algo_PB() { }

@@ -24,6 +24,7 @@
 #include "libde265/encoder/algo/cb-split.h"
 #include "libde265/encoder/algo/coding-options.h"
 #include "libde265/encoder/encoder-context.h"
+#include "libde265/encoder/encoder-syntax.h"
 #include <assert.h>
 #include <limits>
 #include <math.h>
@@ -46,11 +47,15 @@ enc_cb* Algo_CB_Split::encode_cb_split(encoder_context* ectx,
   // encode all 4 children and sum their distortions and rates
 
   for (int i=0;i<4;i++) {
+    cb->children[i] = NULL;
+  }
+
+  for (int i=0;i<4;i++) {
     int child_x = cb->x + ((i&1)  << (cb->log2Size-1));
     int child_y = cb->y + ((i>>1) << (cb->log2Size-1));
 
     if (child_x>=w || child_y>=h) {
-      cb->children[i] = NULL;
+      // NOP
     }
     else {
       enc_cb* childCB = new enc_cb;
@@ -59,8 +64,12 @@ enc_cb* Algo_CB_Split::encode_cb_split(encoder_context* ectx,
 
       childCB->x = child_x;
       childCB->y = child_y;
+      childCB->parent  = cb;
+      childCB->downPtr = &cb->children[i];
 
+      descend(cb,"yes %d/4",i+1);
       cb->children[i] = analyze(ectx, ctxModel, childCB);
+      ascend();
 
       cb->distortion += cb->children[i]->distortion;
       cb->rate       += cb->children[i]->rate;
@@ -81,7 +90,7 @@ enc_cb* Algo_CB_Split_BruteForce::analyze(encoder_context* ectx,
 
   // --- prepare coding options ---
 
-  const SplitType split_type = get_split_type(&ectx->sps,
+  const SplitType split_type = get_split_type(&ectx->get_sps(),
                                               cb_input->x, cb_input->y,
                                               cb_input->log2Size);
 
@@ -92,25 +101,32 @@ enc_cb* Algo_CB_Split_BruteForce::analyze(encoder_context* ectx,
   //if (can_split_CB) { can_nosplit_CB=false; } // TODO TMP
   //if (can_nosplit_CB) { can_split_CB=false; } // TODO TMP
 
-  CodingOptions options(ectx, cb_input, ctxModel);
+  CodingOptions<enc_cb> options(ectx, cb_input, ctxModel);
 
-  CodingOption option_split    = options.new_option(can_split_CB);
-  CodingOption option_no_split = options.new_option(can_nosplit_CB);
+  CodingOption<enc_cb> option_no_split = options.new_option(can_nosplit_CB);
+  CodingOption<enc_cb> option_split    = options.new_option(can_split_CB);
 
   options.start();
+
+  /*
+  cb_input->writeSurroundingMetadata(ectx, ectx->img,
+                                     enc_node::METADATA_CT_DEPTH, // for estimation cb-split bits
+                                     cb_input->get_rectangle());
+  */
 
   // --- encode without splitting ---
 
   if (option_no_split) {
-    CodingOption& opt = option_no_split; // abbrev.
+    CodingOption<enc_cb>& opt = option_no_split; // abbrev.
 
     opt.begin();
 
-    enc_cb* cb = opt.get_cb();
+    enc_cb* cb = opt.get_node();
+    *cb_input->downPtr = cb;
 
     // set CB size in image data-structure
-    ectx->img->set_ctDepth(cb->x,cb->y,cb->log2Size, cb->ctDepth);
-    ectx->img->set_log2CbSize(cb->x,cb->y,cb->log2Size, true);
+    //ectx->img->set_ctDepth(cb->x,cb->y,cb->log2Size, cb->ctDepth);
+    //ectx->img->set_log2CbSize(cb->x,cb->y,cb->log2Size, true);
 
     /* We set QP here, because this is required at in non-split CBs only.
      */
@@ -118,7 +134,10 @@ enc_cb* Algo_CB_Split_BruteForce::analyze(encoder_context* ectx,
 
     // analyze subtree
     assert(mChildAlgo);
+
+    descend(cb,"no");
     cb = mChildAlgo->analyze(ectx, opt.get_context(), cb);
+    ascend();
 
     // add rate for split flag
     if (split_type == OptionalSplit) {
@@ -126,7 +145,7 @@ enc_cb* Algo_CB_Split_BruteForce::analyze(encoder_context* ectx,
       cb->rate += opt.get_cabac_rate();
     }
 
-    opt.set_cb(cb);
+    opt.set_node(cb);
     opt.end();
   }
 
@@ -135,7 +154,9 @@ enc_cb* Algo_CB_Split_BruteForce::analyze(encoder_context* ectx,
   if (option_split) {
     option_split.begin();
 
-    enc_cb* cb = option_split.get_cb();
+    enc_cb* cb = option_split.get_node();
+    *cb_input->downPtr = cb;
+
     cb = encode_cb_split(ectx, option_split.get_context(), cb);
 
     // add rate for split flag
@@ -144,12 +165,14 @@ enc_cb* Algo_CB_Split_BruteForce::analyze(encoder_context* ectx,
       cb->rate += option_split.get_cabac_rate();
     }
 
-    option_split.set_cb(cb);
+    option_split.set_node(cb);
     option_split.end();
   }
 
   options.compute_rdo_costs();
-  enc_cb* bestCB = options.return_best_rdo();
+  enc_cb* bestCB = options.return_best_rdo_node();
+
+  //bestCB->debug_assertTreeConsistency(ectx->img);
 
   return bestCB;
 }

@@ -20,7 +20,7 @@
  * along with libde265.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "encode.h"
+#include "encoder-syntax.h"
 #include "encoder-context.h"
 #include "slice.h"
 #include "scan.h"
@@ -30,371 +30,65 @@
 #include <iostream>
 
 
-int allocTB = 0;
-int allocCB = 0;
+#ifdef DE265_LOG_DEBUG
+#define ESTIM_BITS_BEGIN \
+  CABAC_encoder_estim* log_estim; \
+  float log_bits_pre = 0; \
+  if (logdebug_enabled(LogEncoder)) { \
+  log_estim = dynamic_cast<CABAC_encoder_estim*>(cabac); \
+  if (log_estim) { \
+    log_bits_pre = log_estim->getRDBits(); \
+  } \
+  }
 
-#define DEBUG_ALLOCS 0
+#define ESTIM_BITS_END(name) \
+  if (logdebug_enabled(LogEncoder)) { \
+  if (log_estim) { \
+    float bits_post = log_estim->getRDBits(); \
+    printf("%s=%f\n",name,bits_post - log_bits_pre);  \
+  } \
+  }
+#else
+#define ESTIM_BITS_BEGIN
+#define ESTIM_BITS_END(name)
+#endif
 
 
 
-void enc_node::save(const de265_image* img)
+static void internal_recursive_cbfChroma_rate(CABAC_encoder_estim* cabac,
+                                              enc_tb* tb, int log2TrafoSize, int trafoDepth)
 {
-  delete[] mReconstruction;
+  // --- CBF CB/CR ---
 
-  int blkSize = Log2SizeToArea(log2Size);
-  mReconstruction = new uint8_t[blkSize * 3/2];
+  // For 4x4 luma, there is no signaling of chroma CBF, because only the
+  // chroma CBF for 8x8 is relevant.
+  if (log2TrafoSize>2) {
+    if (trafoDepth==0 || tb->parent->cbf[1]) {
+      encode_cbf_chroma(cabac, trafoDepth, tb->cbf[1]);
+    }
+    if (trafoDepth==0 || tb->parent->cbf[2]) {
+      encode_cbf_chroma(cabac, trafoDepth, tb->cbf[2]);
+    }
+  }
 
-  int w = 1<<log2Size;
-
-  copy_subimage(mReconstruction, w,
-                img->get_image_plane_at_pos(0, x,y),
-                img->get_image_stride(0),
-                w,w);
-
-  copy_subimage(mReconstruction + blkSize, w>>1,
-                img->get_image_plane_at_pos(1, x>>1,y>>1),
-                img->get_image_stride(1),
-                w>>1,w>>1);
-
-  copy_subimage(mReconstruction + blkSize*5/4, w>>1,
-                img->get_image_plane_at_pos(2, x>>1,y>>1),
-                img->get_image_stride(2),
-                w>>1,w>>1);
-}
-
-
-void enc_node::restore(de265_image* img)
-{
-  assert(mReconstruction);
-
-  int blkSize = Log2SizeToArea(log2Size);
-  int w = 1<<log2Size;
-
-  copy_subimage(img->get_image_plane_at_pos(0, x,y),
-                img->get_image_stride(0),
-                mReconstruction, w,
-                w,w);
-
-  copy_subimage(img->get_image_plane_at_pos(1, x>>1,y>>1),
-                img->get_image_stride(1),
-                mReconstruction + blkSize, w>>1,
-                w>>1,w>>1);
-
-  copy_subimage(img->get_image_plane_at_pos(2, x>>1,y>>1),
-                img->get_image_stride(2),
-                mReconstruction + blkSize*5/4, w>>1,
-                w>>1,w>>1);
-}
-
-
-void enc_cb::save(const de265_image* img)
-{
-  enc_node::save(img);
-
-  // TODO: save metadata in node buffer memory
-}
-
-
-void enc_cb::restore(de265_image* img)
-{
-  enc_node::restore(img);
-
-  // write back all the metadata
-
-  write_to_image(img);
-}
-
-
-void enc_cb::set_rqt_root_bf_from_children_cbf()
-{
-  assert(transform_tree);
-  inter.rqt_root_cbf = (transform_tree->cbf[0] |
-                        transform_tree->cbf[1] |
-                        transform_tree->cbf[2]);
-}
-
-
-
-
-alloc_pool enc_tb::mMemPool(sizeof(enc_tb));
-
-enc_tb::enc_tb()
-  : split_transform_flag(false)
-{
-  coeff[0]=coeff[1]=coeff[2]=NULL;
-
-  if (DEBUG_ALLOCS) { allocTB++; printf("TB  : %d\n",allocTB); }
-}
-
-
-enc_tb::~enc_tb()
-{
-  if (split_transform_flag) {
+  if (tb->split_transform_flag) {
     for (int i=0;i<4;i++) {
-      delete children[i];
-    }
-  }
-  else {
-    for (int i=0;i<3;i++) {
-      delete[] coeff[i];
-    }
-  }
-
-  if (DEBUG_ALLOCS) { allocTB--; printf("TB ~: %d\n",allocTB); }
-}
-
-
-void enc_tb::alloc_coeff_memory(int cIdx, int tbSize)
-{
-  assert(coeff[cIdx]==NULL);
-  coeff[cIdx] = new int16_t[tbSize*tbSize];
-}
-
-
-void enc_tb::reconstruct_tb(encoder_context* ectx,
-                            de265_image* img,
-                            int x0,int y0,  // luma
-                            int log2TbSize, // chroma adapted
-                            const enc_cb* cb, int cIdx) const
-{
-  // chroma adapted position
-  int xC=x0;
-  int yC=y0;
-
-  if (cIdx>0) {
-    xC>>=1;
-    yC>>=1;
-  }
-
-  if (cb->PredMode == MODE_INTRA) {
-
-    enum IntraPredMode intraPredMode  = img->get_IntraPredMode(x0,y0);
-
-    if (cIdx>0) {
-      intraPredMode = cb->intra.chroma_mode;
-      //intraPredMode = lumaPredMode_to_chromaPredMode(intraPredMode, cb->intra.chroma_mode);
-    }
-
-    decode_intra_prediction(img, xC,yC,  intraPredMode, 1<< log2TbSize   , cIdx);
-  }
-  else {
-    int size = 1<<log2TbSize;
-
-    uint8_t* dst_ptr  = img->get_image_plane_at_pos(cIdx, xC,  yC  );
-    int dst_stride  = img->get_image_stride(cIdx);
-
-    uint8_t* src_ptr  = ectx->prediction->get_image_plane_at_pos(cIdx, xC,  yC  );
-    int src_stride  = ectx->prediction->get_image_stride(cIdx);
-
-    for (int y=0;y<size;y++) {
-      for (int x=0;x<size;x++) {
-        dst_ptr[y*dst_stride+x] = src_ptr[y*src_stride+x];
-      }
-    }
-  }
-
-  ALIGNED_16(int16_t) dequant_coeff[32*32];
-
-  if (cbf[cIdx]) dequant_coefficients(dequant_coeff, coeff[cIdx], log2TbSize, cb->qp);
-
-  //printf("--- quantized coeffs ---\n");
-  //printBlk(coeff[0],1<<log2BlkSize,1<<log2BlkSize);
-
-  //printf("--- dequantized coeffs ---\n");
-  //printBlk(dequant_coeff[0],1<<log2BlkSize,1<<log2BlkSize);
-
-  //printf("--- plane at %d %d / %d ---\n",x0,y0,cIdx);
-
-  uint8_t* ptr  = img->get_image_plane_at_pos(cIdx, xC,  yC  );
-  int stride  = img->get_image_stride(cIdx);
-
-  int trType = (cIdx==0 && log2TbSize==2); // TODO: inter
-
-  //printf("--- prediction %d %d / %d ---\n",x0,y0,cIdx);
-  //printBlk("prediction",ptr,1<<log2TbSize,stride);
-
-  if (cbf[cIdx]) inv_transform(&ectx->acceleration,
-                               ptr,stride,   dequant_coeff, log2TbSize,   trType);
-
-
-  //printf("--- RECO intra prediction %d %d ---\n",x0,y0);
-  //printBlk("prediction",ptr,1<<log2TbSize,stride);
-
-  //dequant_and_add_transform(accel, img, x0,y0, qp);
-
-  //printf("--- RECO add residual %d %d ---\n",x0,y0);
-  //img->printBlk(x0,y0,0,log2CbSize);
-}
-
-
-void enc_tb::reconstruct(encoder_context* ectx,
-                         de265_image* img,
-                         const enc_cb* cb,
-                         int blkIdx) const
-{
-  if (split_transform_flag) {
-    for (int i=0;i<4;i++) {
-      children[i]->reconstruct(ectx,img,
-                               cb, i);
-    }
-  }
-  else {
-    reconstruct_tb(ectx, img, x,y, log2Size, cb, 0);
-
-    if (log2Size>2) {
-      reconstruct_tb(ectx, img, x,y, log2Size-1, cb, 1);
-      reconstruct_tb(ectx, img, x,y, log2Size-1, cb, 2);
-    }
-    else if (blkIdx==3) {
-      int xBase = x - (1<<log2Size);
-      int yBase = y - (1<<log2Size);
-
-      reconstruct_tb(ectx, img, xBase,yBase, log2Size, cb, 1);
-      reconstruct_tb(ectx, img, xBase,yBase, log2Size, cb, 2);
+      internal_recursive_cbfChroma_rate(cabac, tb->children[i], log2TrafoSize-1, trafoDepth+1);
     }
   }
 }
 
 
-void enc_tb::set_cbf_flags_from_children()
+float recursive_cbfChroma_rate(CABAC_encoder_estim* cabac,
+                               enc_tb* tb, int log2TrafoSize, int trafoDepth)
 {
-  assert(split_transform_flag);
+  float bits_pre = cabac->getRDBits();
 
-  cbf[0] = 0;
-  cbf[1] = 0;
-  cbf[2] = 0;
+  internal_recursive_cbfChroma_rate(cabac, tb, log2TrafoSize, trafoDepth);
 
-  for (int i=0;i<4;i++) {
-    cbf[0] |= children[i]->cbf[0];
-    cbf[1] |= children[i]->cbf[1];
-    cbf[2] |= children[i]->cbf[2];
-  }
-}
+  float bits_post = cabac->getRDBits();
 
-
-
-
-alloc_pool enc_cb::mMemPool(sizeof(enc_cb), 200);
-
-
-enc_cb::enc_cb()
-  : split_cu_flag(false),
-    cu_transquant_bypass_flag(false),
-    pcm_flag(false),
-    transform_tree(NULL),
-    distortion(0),
-    rate(0)
-{
-  if (DEBUG_ALLOCS) { allocCB++; printf("CB  : %d\n",allocCB); }
-}
-
-enc_cb::~enc_cb()
-{
-  if (split_cu_flag) {
-    for (int i=0;i<4;i++) {
-      delete children[i];
-    }
-  }
-  else {
-    delete transform_tree;
-  }
-
-  if (DEBUG_ALLOCS) { allocCB--; printf("CB ~: %d\n",allocCB); }
-}
-
-
-void enc_cb::write_to_image(de265_image* img) const
-{
-  //printf("write_to_image %d %d size:%d\n",x,y,1<<log2Size);
-
-
-  if (!split_cu_flag) {
-    img->set_log2CbSize(x,y,log2Size, true);
-    img->set_ctDepth(x,y,log2Size, ctDepth);
-    assert(pcm_flag==0);
-    img->set_pcm_flag(x,y,log2Size, pcm_flag);
-    img->set_cu_transquant_bypass(x,y,log2Size, cu_transquant_bypass_flag);
-    img->set_QPY(x,y,log2Size, qp);
-    img->set_pred_mode(x,y, log2Size, PredMode);
-    img->set_PartMode(x,y, PartMode);
-
-    if (PredMode == MODE_INTRA) {
-      //img->set_ChromaIntraPredMode(x,y,log2Size, intra.chroma_mode);
-
-      if (PartMode == PART_NxN) {
-        int h = 1<<(log2Size-1);
-        img->set_IntraPredMode(x  ,y  ,log2Size-1, intra.pred_mode[0]);
-        img->set_IntraPredMode(x+h,y  ,log2Size-1, intra.pred_mode[1]);
-        img->set_IntraPredMode(x  ,y+h,log2Size-1, intra.pred_mode[2]);
-        img->set_IntraPredMode(x+h,y+h,log2Size-1, intra.pred_mode[3]);
-      }
-      else {
-        img->set_IntraPredMode(x,y,log2Size, intra.pred_mode[0]);
-      }
-    }
-    else {
-      int nC = 1<<log2Size;
-      int nC2 = nC>>1;
-      int nC4 = nC>>2;
-      int nC3 = nC-nC4;
-      switch (PartMode) {
-      case PART_2Nx2N:
-        img->set_mv_info(x,y,nC,nC, inter.pb[0].motion);
-        break;
-      case PART_NxN:
-        img->set_mv_info(x    ,y    ,nC2,nC2, inter.pb[0].motion);
-        img->set_mv_info(x+nC2,y    ,nC2,nC2, inter.pb[1].motion);
-        img->set_mv_info(x    ,y+nC2,nC2,nC2, inter.pb[2].motion);
-        img->set_mv_info(x+nC2,y+nC2,nC2,nC2, inter.pb[3].motion);
-        break;
-      case PART_2NxN:
-        img->set_mv_info(x,y    ,nC,nC2, inter.pb[0].motion);
-        img->set_mv_info(x,y+nC2,nC,nC2, inter.pb[1].motion);
-        break;
-      case PART_Nx2N:
-        img->set_mv_info(x    ,y,nC2,nC, inter.pb[0].motion);
-        img->set_mv_info(x+nC2,y,nC2,nC, inter.pb[1].motion);
-        break;
-      case PART_2NxnU:
-        img->set_mv_info(x,y    ,nC,nC4, inter.pb[0].motion);
-        img->set_mv_info(x,y+nC4,nC,nC3, inter.pb[1].motion);
-        break;
-      case PART_2NxnD:
-        img->set_mv_info(x,y    ,nC,nC3, inter.pb[0].motion);
-        img->set_mv_info(x,y+nC3,nC,nC4, inter.pb[1].motion);
-        break;
-      case PART_nLx2N:
-        img->set_mv_info(x    ,y,nC4,nC, inter.pb[0].motion);
-        img->set_mv_info(x+nC4,y,nC3,nC, inter.pb[1].motion);
-        break;
-      case PART_nRx2N:
-        img->set_mv_info(x    ,y,nC3,nC, inter.pb[0].motion);
-        img->set_mv_info(x+nC3,y,nC4,nC, inter.pb[1].motion);
-        break;
-      }
-    }
-  }
-  else {
-    for (int i=0;i<4;i++) {
-      if (children[i]) {
-        children[i]->write_to_image(img);
-      }
-    }
-  }
-}
-
-
-void enc_cb::reconstruct(encoder_context* ectx, de265_image* img) const
-{
-  if (split_cu_flag) {
-    for (int i=0;i<4;i++) {
-      children[i]->reconstruct(ectx, img);
-    }
-  }
-  else {
-    write_to_image(img);
-    transform_tree->reconstruct(ectx,img,this,0);
-  }
+  return bits_post - bits_pre;
 }
 
 
@@ -413,8 +107,8 @@ void encode_split_cu_flag(encoder_context* ectx,
   int condL = 0;
   int condA = 0;
 
-  if (availableL && ectx->img->get_ctDepth(x0-1,y0) > ctDepth) condL=1;
-  if (availableA && ectx->img->get_ctDepth(x0,y0-1) > ctDepth) condA=1;
+  if (availableL && ectx->ctbs.getCB(x0-1,y0)->ctDepth > ctDepth) condL=1;
+  if (availableA && ectx->ctbs.getCB(x0,y0-1)->ctDepth > ctDepth) condA=1;
 
   int contextOffset = condL + condA;
   int context = contextOffset;
@@ -447,8 +141,8 @@ void encode_part_mode(encoder_context* ectx,
       cabac->write_CABAC_bit(CONTEXT_MODEL_PART_MODE+0, 0);
     }
 
-    if (cLog2CbSize > ectx->sps.Log2MinCbSizeY) {
-      if (ectx->sps.amp_enabled_flag) {
+    if (cLog2CbSize > ectx->get_sps().Log2MinCbSizeY) {
+      if (ectx->get_sps().amp_enabled_flag) {
         switch (PartMode) {
         case PART_2NxN:
           cabac->write_CABAC_bit(CONTEXT_MODEL_PART_MODE+1, 1);
@@ -1039,9 +733,11 @@ void encode_residual(encoder_context* ectx,
                      const enc_tb* tb, const enc_cb* cb,
                      int x0,int y0,int log2TrafoSize,int cIdx)
 {
+  logdebug(LogEncoder,"encode_residual %s\n",typeid(*cabac).name());
+
   const de265_image* img = ectx->img;
-  const seq_parameter_set& sps = img->sps;
-  const pic_parameter_set& pps = img->pps;
+  const seq_parameter_set& sps = img->get_sps();
+  const pic_parameter_set& pps = img->get_pps();
 
   int16_t* coeff = tb->coeff[cIdx];
 
@@ -1049,15 +745,15 @@ void encode_residual(encoder_context* ectx,
   }
 
 
-#if 0
-  printf("write coefficients\n");
+#if 1
+  logdebug(LogEncoder,"write coefficients\n");
   for (int y=0;y<(1<<log2TrafoSize);y++)
     {
       for (int x=0;x<(1<<log2TrafoSize);x++)
         {
-          printf("%4d ",coeff[x+y*(1<<log2TrafoSize)]);
+          logdebug(LogEncoder,"*%4d ",coeff[x+y*(1<<log2TrafoSize)]);
         }
-      printf("\n");
+      logdebug(LogEncoder,"*\n");
     }
 #endif
 
@@ -1069,15 +765,13 @@ void encode_residual(encoder_context* ectx,
 
   if (PredMode == MODE_INTRA) {
     if (cIdx==0) {
-      scanIdx = get_intra_scan_idx_luma(log2TrafoSize, img->get_IntraPredMode(x0,y0));
+      scanIdx = get_intra_scan_idx(log2TrafoSize, tb->intra_mode,  cIdx, &sps);
+      //printf("luma scan idx=%d <- intra mode=%d\n",scanIdx, tb->intra_mode);
     }
     else {
-      enum IntraPredMode chromaMode = cb->intra.chroma_mode;
-      /*
-      enum IntraPredMode chromaMode = lumaPredMode_to_chromaPredMode(img->get_IntraPredMode(x0,y0),
-                                                                     cb->intra.chroma_mode);
-      */
-      scanIdx = get_intra_scan_idx_chroma(log2TrafoSize, chromaMode);
+      scanIdx = get_intra_scan_idx(log2TrafoSize, tb->intra_mode_chroma,  cIdx, &sps);
+      //printf("chroma scan idx=%d <- intra mode=%d chroma:%d trsize:%d\n",scanIdx,
+      //       tb->intra_mode_chroma, sps.chroma_format_idc, 1<<log2TrafoSize);
     }
   }
   else {
@@ -1205,7 +899,8 @@ void encode_residual(encoder_context* ectx,
       int prevCsbf = coded_sub_block_neighbors[S.x+S.y*sbWidth];
       uint8_t* ctxIdxMap = ctxIdxLookup[log2w][!!cIdx][!!scanIdx][prevCsbf];
 
-
+      logdebug(LogSlice,"log2w:%d cIdx:%d scanIdx:%d prevCsbf:%d\n",
+               log2w,cIdx,scanIdx,prevCsbf);
 
 
       // set the last coded coefficient in the last subblock
@@ -1235,6 +930,7 @@ void encode_residual(encoder_context* ectx,
 
         logtrace(LogSlice,"coeff %d is significant: %d\n", n, isSignificant);
 
+        logtrace(LogSlice,"trafoSize: %d\n",1<<log2TrafoSize);
         logtrace(LogSlice,"context idx: %d;%d\n",xC,yC);
 
         encode_significant_coeff_flag_lookup(ectx, cabac,
@@ -1451,8 +1147,10 @@ void encode_transform_unit(encoder_context* ectx,
                            int x0,int y0, int xBase,int yBase,
                            int log2TrafoSize, int trafoDepth, int blkIdx)
 {
+  ESTIM_BITS_BEGIN;
+
   if (tb->cbf[0] || tb->cbf[1] || tb->cbf[2]) {
-    if (ectx->img->pps.cu_qp_delta_enabled_flag &&
+    if (ectx->img->get_pps().cu_qp_delta_enabled_flag &&
         true /*!ectx->IsCuQpDeltaCoded*/) {
       assert(0);
     }
@@ -1461,8 +1159,17 @@ void encode_transform_unit(encoder_context* ectx,
       encode_residual(ectx,cabac, tb,cb,x0,y0,log2TrafoSize,0);
     }
 
-    // larger than 4x4
-    if (log2TrafoSize>2) {
+    if (ectx->get_sps().chroma_format_idc == CHROMA_444) {
+      if (tb->cbf[1]) {
+        encode_residual(ectx,cabac, tb,cb,x0,y0,log2TrafoSize,1);
+      }
+      if (tb->cbf[2]) {
+        encode_residual(ectx,cabac, tb,cb,x0,y0,log2TrafoSize,2);
+      }
+    }
+    else if (log2TrafoSize>2) {
+      // larger than 4x4
+
       if (tb->cbf[1]) {
         encode_residual(ectx,cabac,tb,cb,x0,y0,log2TrafoSize-1,1);
       }
@@ -1480,6 +1187,8 @@ void encode_transform_unit(encoder_context* ectx,
       }
     }
   }
+
+  ESTIM_BITS_END("encode_transform_unit");
 }
 
 
@@ -1490,11 +1199,13 @@ void encode_transform_tree(encoder_context* ectx,
                            int log2TrafoSize, int trafoDepth, int blkIdx,
                            int MaxTrafoDepth, int IntraSplitFlag, bool recurse)
 {
-  //de265_image* img = ectx->img;
-  const seq_parameter_set* sps = &ectx->img->sps;
+  ESTIM_BITS_BEGIN;
 
-  if (log2TrafoSize <= sps->Log2MaxTrafoSize &&
-      log2TrafoSize >  sps->Log2MinTrafoSize &&
+  //de265_image* img = ectx->img;
+  const seq_parameter_set& sps = ectx->img->get_sps();
+
+  if (log2TrafoSize <= sps.Log2MaxTrafoSize &&
+      log2TrafoSize >  sps.Log2MinTrafoSize &&
       trafoDepth < MaxTrafoDepth &&
       !(IntraSplitFlag && trafoDepth==0))
     {
@@ -1505,7 +1216,7 @@ void encode_transform_tree(encoder_context* ectx,
     {
       int interSplitFlag=0; // TODO
 
-      bool split_transform_flag = (log2TrafoSize > sps->Log2MaxTrafoSize ||
+      bool split_transform_flag = (log2TrafoSize > sps.Log2MaxTrafoSize ||
                                    (IntraSplitFlag==1 && trafoDepth==0) ||
                                    interSplitFlag==1) ? 1:0;
 
@@ -1524,7 +1235,7 @@ void encode_transform_tree(encoder_context* ectx,
 
   // For 4x4 luma, there is no signaling of chroma CBF, because only the
   // chroma CBF for 8x8 is relevant.
-  if (log2TrafoSize>2) {
+  if (log2TrafoSize>2 || sps.ChromaArrayType == CHROMA_444) {
     if (trafoDepth==0 || tb->parent->cbf[1]) {
       encode_cbf_chroma(cabac, trafoDepth, tb->cbf[1]);
     }
@@ -1563,6 +1274,8 @@ void encode_transform_tree(encoder_context* ectx,
 
     encode_transform_unit(ectx,cabac, tb,cb, x0,y0, xBase,yBase, log2TrafoSize, trafoDepth, blkIdx);
   }
+
+  ESTIM_BITS_END("encode_transform_tree");
 }
 
 
@@ -1586,8 +1299,8 @@ void encode_cu_skip_flag(encoder_context* ectx,
   int condL = 0;
   int condA = 0;
 
-  if (availableL && img->get_cu_skip_flag(x0-1,y0)) condL=1;
-  if (availableA && img->get_cu_skip_flag(x0,y0-1)) condA=1;
+  if (availableL && ectx->ctbs.getCB(x0-1,y0)->PredMode == MODE_SKIP) condL=1;
+  if (availableA && ectx->ctbs.getCB(x0,y0-1)->PredMode == MODE_SKIP) condA=1;
 
   int contextOffset = condL + condA;
   int context = contextOffset;
@@ -1733,7 +1446,7 @@ void encode_coding_unit(encoder_context* ectx,
 
   de265_image* img = ectx->img;
   const slice_segment_header* shdr = &ectx->imgdata->shdr;
-  const seq_parameter_set* sps = &ectx->img->sps;
+  const seq_parameter_set& sps = ectx->img->get_sps();
 
 
   int nCbS = 1<<log2CbSize;
@@ -1760,28 +1473,31 @@ void encode_coding_unit(encoder_context* ectx,
     }
 
     if (PredMode != MODE_INTRA ||
-        log2CbSize == sps->Log2MinCbSizeY) {
+        log2CbSize == sps.Log2MinCbSizeY) {
       PartMode = cb->PartMode;
       encode_part_mode(ectx,cabac, PredMode, PartMode, log2CbSize);
     }
 
     if (PredMode == MODE_INTRA) {
 
+      assert(cb->split_cu_flag == 0);
+
       int availableA0 = check_CTB_available(img, x0,y0, x0-1,y0);
       int availableB0 = check_CTB_available(img, x0,y0, x0,y0-1);
 
       if (PartMode==PART_2Nx2N) {
         logtrace(LogSlice,"x0,y0: %d,%d\n",x0,y0);
-        int PUidx = (x0>>sps->Log2MinPUSize) + (y0>>sps->Log2MinPUSize)*sps->PicWidthInMinPUs;
+        int PUidx = (x0>>sps.Log2MinPUSize) + (y0>>sps.Log2MinPUSize)*sps.PicWidthInMinPUs;
 
-        int candModeList[3];
-        fillIntraPredModeCandidates(candModeList,x0,y0,PUidx,
-                                    availableA0,availableB0, img);
+        enum IntraPredMode candModeList[3];
+        fillIntraPredModeCandidates(candModeList,x0,y0,
+                                    availableA0,availableB0, ectx->ctbs, &sps);
 
         for (int i=0;i<3;i++)
           logtrace(LogSlice,"candModeList[%d] = %d\n", i, candModeList[i]);
 
-        enum IntraPredMode mode = cb->intra.pred_mode[0];
+        enum IntraPredMode mode = cb->transform_tree->intra_mode;
+
         int intraPred = find_intra_pred_mode(mode, candModeList);
         encode_prev_intra_luma_pred_flag(ectx,cabac, intraPred);
         encode_intra_mpm_or_rem(ectx,cabac, intraPred);
@@ -1789,6 +1505,12 @@ void encode_coding_unit(encoder_context* ectx,
         logtrace(LogSlice,"IntraPredMode: %d (candidates: %d %d %d)\n", mode,
                  candModeList[0], candModeList[1], candModeList[2]);
         logtrace(LogSlice,"  MPM/REM = %d\n",intraPred);
+
+
+        IntraChromaPredMode chromaPredMode;
+        chromaPredMode = find_chroma_pred_mode(cb->transform_tree->intra_mode_chroma,
+                                               cb->transform_tree->intra_mode);
+        encode_intra_chroma_pred_mode(ectx,cabac, chromaPredMode);
       }
       else {
         IntraSplitFlag=1;
@@ -1807,29 +1529,55 @@ void encode_coding_unit(encoder_context* ectx,
               int availableA = availableA0 || (i>0); // left candidate always available for right blk
               int availableB = availableB0 || (j>0); // top candidate always available for bottom blk
 
-              PUidx = (x>>sps->Log2MinPUSize) + (y>>sps->Log2MinPUSize)*sps->PicWidthInMinPUs;
+              PUidx = (x>>sps.Log2MinPUSize) + (y>>sps.Log2MinPUSize)*sps.PicWidthInMinPUs;
 
-              int candModeList[3];
-              fillIntraPredModeCandidates(candModeList,x,y,PUidx,
-                                          availableA,availableB, img);
+              enum IntraPredMode candModeList[3];
+              fillIntraPredModeCandidates(candModeList,x,y,
+                                          availableA,availableB, ectx->ctbs, &sps);
 
-              enum IntraPredMode mode = cb->intra.pred_mode[childIdx];
+              for (int i=0;i<3;i++)
+                logtrace(LogSlice,"candModeList[%d] = %d\n", i, candModeList[i]);
 
-              assert(ectx->img->get_IntraPredMode(x,y) == mode);
+              enum IntraPredMode mode = cb->transform_tree->children[childIdx]->intra_mode;
 
               intraPred[childIdx] = find_intra_pred_mode(mode, candModeList);
+
+              logtrace(LogSlice,"IntraPredMode: %d (candidates: %d %d %d)\n", mode,
+                       candModeList[0], candModeList[1], candModeList[2]);
+              logtrace(LogSlice,"  MPM/REM = %d\n",intraPred[childIdx]);
             }
 
         for (int i=0;i<4;i++)
           encode_prev_intra_luma_pred_flag(ectx,cabac, intraPred[i]);
 
-        for (int i=0;i<4;i++)
+        for (int i=0;i<4;i++) {
           encode_intra_mpm_or_rem(ectx,cabac, intraPred[i]);
+        }
+
+
+        // send chroma mode
+
+        if (sps.ChromaArrayType == CHROMA_444) {
+          for (int i=0;i<4;i++) {
+            IntraChromaPredMode chromaPredMode;
+            chromaPredMode = find_chroma_pred_mode(cb->transform_tree->children[i]->intra_mode_chroma,
+                                                   cb->transform_tree->children[i]->intra_mode);
+            encode_intra_chroma_pred_mode(ectx,cabac, chromaPredMode);
+          }
+        }
+        else {
+          IntraChromaPredMode chromaPredMode;
+          chromaPredMode = find_chroma_pred_mode(cb->transform_tree->children[0]->intra_mode_chroma,
+                                                 cb->transform_tree->children[0]->intra_mode);
+          encode_intra_chroma_pred_mode(ectx,cabac, chromaPredMode);
+        }
       }
 
-      IntraChromaPredMode chromaPredMode = find_chroma_pred_mode(cb->intra.chroma_mode,
-                                                                 cb->intra.pred_mode[0]);
-      encode_intra_chroma_pred_mode(ectx,cabac, chromaPredMode);
+      /*
+      printf("write intra modes. Luma=%d Chroma=%d\n",
+             cb->intra.pred_mode[0],
+             cb->intra.chroma_mode);
+      */
     }
     else {
       switch (cb->PartMode) {
@@ -1863,9 +1611,9 @@ void encode_coding_unit(encoder_context* ectx,
       if (cb->PredMode == MODE_INTRA || cb->inter.rqt_root_cbf) {
         int MaxTrafoDepth;
         if (PredMode == MODE_INTRA)
-          { MaxTrafoDepth = sps->max_transform_hierarchy_depth_intra + IntraSplitFlag; }
+          { MaxTrafoDepth = sps.max_transform_hierarchy_depth_intra + IntraSplitFlag; }
         else
-          { MaxTrafoDepth = sps->max_transform_hierarchy_depth_inter; }
+          { MaxTrafoDepth = sps.max_transform_hierarchy_depth_inter; }
 
 
         if (recurse) {
@@ -1916,9 +1664,9 @@ void encode_quadtree(encoder_context* ectx,
                      bool recurse)
 {
   //de265_image* img = ectx->img;
-  const seq_parameter_set* sps = &ectx->img->sps;
+  const seq_parameter_set& sps = ectx->img->get_sps();
 
-  int split_flag = get_split_type(sps,x0,y0,log2CbSize);
+  int split_flag = get_split_type(&sps,x0,y0,log2CbSize);
 
   // if it is an optional split, take the decision from the CU flag
   if (split_flag == OptionalSplit) {
@@ -1935,14 +1683,14 @@ void encode_quadtree(encoder_context* ectx,
 
       encode_quadtree(ectx,cabac, cb->children[0], x0,y0, log2CbSize-1, ctDepth+1, true);
 
-      if (x1<sps->pic_width_in_luma_samples)
+      if (x1<sps.pic_width_in_luma_samples)
         encode_quadtree(ectx,cabac, cb->children[1], x1,y0, log2CbSize-1, ctDepth+1, true);
 
-      if (y1<sps->pic_height_in_luma_samples)
+      if (y1<sps.pic_height_in_luma_samples)
         encode_quadtree(ectx,cabac, cb->children[2], x0,y1, log2CbSize-1, ctDepth+1, true);
 
-      if (x1<sps->pic_width_in_luma_samples &&
-          y1<sps->pic_height_in_luma_samples)
+      if (x1<sps.pic_width_in_luma_samples &&
+          y1<sps.pic_height_in_luma_samples)
         encode_quadtree(ectx,cabac, cb->children[3], x1,y1, log2CbSize-1, ctDepth+1, true);
     }
   }
@@ -1972,7 +1720,7 @@ void encode_ctb(encoder_context* ectx,
 #endif
 
   de265_image* img = ectx->img;
-  int log2ctbSize = img->sps.Log2CtbSizeY;
+  int log2ctbSize = img->get_sps().Log2CtbSizeY;
 
   encode_quadtree(ectx,cabac, cb, ctbX<<log2ctbSize, ctbY<<log2ctbSize, log2ctbSize, 0, true);
 }

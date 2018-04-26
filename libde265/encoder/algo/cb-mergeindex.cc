@@ -23,6 +23,7 @@
 
 #include "libde265/encoder/algo/cb-mergeindex.h"
 #include "libde265/encoder/encoder-context.h"
+#include "libde265/encoder/encoder-syntax.h"
 #include <assert.h>
 #include <limits>
 #include <math.h>
@@ -38,21 +39,21 @@ enc_cb* Algo_CB_MergeIndex_Fixed::analyze(encoder_context* ectx,
   assert(cb->PredMode==MODE_SKIP); // TODO: || (cb->PredMode==MODE_INTER && cb->inter.skip_flag));
 
 
-  MotionVectorSpec mergeCandList[5];
+  PBMotion mergeCandList[5];
 
   int partIdx = 0;
 
   int cbSize = 1 << cb->log2Size;
 
-  get_merge_candidate_list(ectx, ectx->shdr, ectx->img,
-                           cb->x, cb->y, // xC/yC
-                           cb->x, cb->y, // xP/yP
-                           cbSize, // nCS
-                           cbSize,cbSize, // nPbW/nPbH
-                           partIdx, // partIdx
-                           mergeCandList);
+  get_merge_candidate_list_from_tree(ectx, ectx->shdr,
+                                     cb->x, cb->y, // xC/yC
+                                     cb->x, cb->y, // xP/yP
+                                     cbSize, // nCS
+                                     cbSize,cbSize, // nPbW/nPbH
+                                     partIdx, // partIdx
+                                     mergeCandList);
 
-  motion_spec&   spec = cb->inter.pb[partIdx].spec;
+  PBMotionCoding&   spec = cb->inter.pb[partIdx].spec;
 
   spec.merge_flag = 1; // we use merge mode
   spec.merge_idx  = 0;
@@ -75,11 +76,12 @@ enc_cb* Algo_CB_MergeIndex_Fixed::analyze(encoder_context* ectx,
 
   // TODO: fake motion data
 
-  const MotionVectorSpec& vec = mergeCandList[spec.merge_idx];
+  const PBMotion& vec = mergeCandList[spec.merge_idx];
   cb->inter.pb[partIdx].motion = vec;
 
-  ectx->img->set_mv_info(cb->x,cb->y, 1<<cb->log2Size,1<<cb->log2Size, vec);
+  //ectx->img->set_mv_info(cb->x,cb->y, 1<<cb->log2Size,1<<cb->log2Size, vec);
 
+  /*
   generate_inter_prediction_samples(ectx, ectx->shdr, ectx->prediction,
                                     cb->x,cb->y, // int xC,int yC,
                                     0,0,         // int xB,int yB,
@@ -87,6 +89,7 @@ enc_cb* Algo_CB_MergeIndex_Fixed::analyze(encoder_context* ectx,
                                     1<<cb->log2Size,
                                     1<<cb->log2Size, // int nPbW,int nPbH,
                                     &vec);
+  */
 
   generate_inter_prediction_samples(ectx, ectx->shdr, ectx->img,
                                     cb->x,cb->y, // int xC,int yC,
@@ -96,19 +99,31 @@ enc_cb* Algo_CB_MergeIndex_Fixed::analyze(encoder_context* ectx,
                                     1<<cb->log2Size, // int nPbW,int nPbH,
                                     &vec);
 
+  /*
+  printBlk("merge prediction:",
+           ectx->img->get_image_plane_at_pos(0, cb->x,cb->y), 1<<cb->log2Size,
+           ectx->img->get_image_stride(0),
+           "merge ");
+  */
+
   // estimate rate for sending merge index
 
   //CABAC_encoder_estim cabac;
   //cabac.write_bits();
 
   int IntraSplitFlag = 0;
-  int MaxTrafoDepth = ectx->sps.max_transform_hierarchy_depth_inter;
+  int MaxTrafoDepth = ectx->get_sps().max_transform_hierarchy_depth_inter;
 
   if (mCodeResidual) {
     assert(false);
+    descend(cb,"with residual");
+    assert(false);
+    /* TODO
     cb->transform_tree = mTBSplit->analyze(ectx,ctxModel, ectx->imgdata->input, NULL, cb,
                                            cb->x,cb->y,cb->x,cb->y, cb->log2Size,0,
                                            0, MaxTrafoDepth, IntraSplitFlag);
+    */
+    ascend();
 
     cb->inter.rqt_root_cbf = ! cb->transform_tree->isZeroBlock();
 
@@ -117,7 +132,7 @@ enc_cb* Algo_CB_MergeIndex_Fixed::analyze(encoder_context* ectx,
   }
   else {
     const de265_image* input = ectx->imgdata->input;
-    de265_image* img   = ectx->prediction;
+    //de265_image* img   = ectx->prediction;
     int x0 = cb->x;
     int y0 = cb->y;
     int tbSize = 1<<cb->log2Size;
@@ -126,10 +141,32 @@ enc_cb* Algo_CB_MergeIndex_Fixed::analyze(encoder_context* ectx,
     cabac.set_context_models(&ctxModel);
     encode_merge_idx(ectx, &cabac, spec.merge_idx);
 
-    cb->distortion = compute_distortion_ssd(input, img, x0,y0, cb->log2Size, 0);
+    leaf(cb,"no residual");
+
     cb->rate = cabac.getRDBits();
 
     cb->inter.rqt_root_cbf = 0;
+
+
+    enc_tb* tb = new enc_tb(x0,y0,cb->log2Size,cb);
+    tb->downPtr = &cb->transform_tree;
+    cb->transform_tree = tb;
+
+    tb->reconstruct(ectx, ectx->img); // reconstruct luma
+
+    /*
+    printBlk("distortion input:",
+             input->get_image_plane_at_pos(0,x0,y0), 1<<cb->log2Size,
+             input->get_image_stride(0),
+             "input ");
+
+    printBlk("distortion prediction:",
+             ectx->img->get_image_plane_at_pos(0,x0,y0), 1<<cb->log2Size,
+             ectx->img->get_image_stride(0),
+             "pred ");
+    */
+
+    cb->distortion = compute_distortion_ssd(input, ectx->img, x0,y0, cb->log2Size, 0);
   }
 
   //printf("%d;%d rqt_root_cbf=%d\n",cb->x,cb->y,cb->inter.rqt_root_cbf);

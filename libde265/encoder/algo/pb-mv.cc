@@ -49,8 +49,8 @@ enc_cb* Algo_PB_MV_Test::analyze(encoder_context* ectx,
   //printf("%d/%d: [%d;%d] [%d;%d]\n",cb->x,cb->y, mvp[0].x,mvp[0].y, mvp[1].x,mvp[1].y);
 
 
-  motion_spec&     spec = cb->inter.pb[PBidx].spec;
-  MotionVectorSpec& vec = cb->inter.pb[PBidx].motion;
+  PBMotionCoding& spec = cb->inter.pb[PBidx].spec;
+  PBMotion&        vec = cb->inter.pb[PBidx].motion;
 
   spec.merge_flag = 0;
   spec.merge_idx  = 0;
@@ -93,6 +93,7 @@ enc_cb* Algo_PB_MV_Test::analyze(encoder_context* ectx,
 
   ectx->img->set_mv_info(x,y,w,h, vec);
 
+  /* TMP REMOVE: ectx->prediction does not exist anymore
   generate_inter_prediction_samples(ectx, ectx->shdr, ectx->prediction,
                                     cb->x,cb->y, // int xC,int yC,
                                     0,0,         // int xB,int yB,
@@ -100,18 +101,22 @@ enc_cb* Algo_PB_MV_Test::analyze(encoder_context* ectx,
                                     1<<cb->log2Size,
                                     1<<cb->log2Size, // int nPbW,int nPbH,
                                     &vec);
+  */
 
   // TODO estimate rate for sending MV
 
   int IntraSplitFlag = 0;
-  int MaxTrafoDepth = ectx->sps.max_transform_hierarchy_depth_inter;
+  int MaxTrafoDepth = ectx->get_sps().max_transform_hierarchy_depth_inter;
 
   mCodeResidual=true;
   if (mCodeResidual) {
     assert(mTBSplitAlgo);
+    assert(false);
+    /*
     cb->transform_tree = mTBSplitAlgo->analyze(ectx,ctxModel, ectx->imgdata->input, NULL, cb,
                                                cb->x,cb->y,cb->x,cb->y, cb->log2Size,0,
                                                0, MaxTrafoDepth, IntraSplitFlag);
+    */
 
     cb->inter.rqt_root_cbf = ! cb->transform_tree->isZeroBlock();
 
@@ -120,6 +125,7 @@ enc_cb* Algo_PB_MV_Test::analyze(encoder_context* ectx,
   }
   else {
     const de265_image* input = ectx->imgdata->input;
+    /* TODO TMP REMOVE: prediction does not exist anymore
     de265_image* img   = ectx->prediction;
     int x0 = cb->x;
     int y0 = cb->y;
@@ -129,6 +135,7 @@ enc_cb* Algo_PB_MV_Test::analyze(encoder_context* ectx,
     cb->rate = 5; // fake (MV)
 
     cb->inter.rqt_root_cbf = 0;
+    */
   }
 
   return cb;
@@ -174,8 +181,8 @@ enc_cb* Algo_PB_MV_Search::analyze(encoder_context* ectx,
                                      0, 0, // int refIdx, int partIdx,
                                      mvp);
 
-  motion_spec&     spec = cb->inter.pb[PBidx].spec;
-  MotionVectorSpec& vec = cb->inter.pb[PBidx].motion;
+  PBMotionCoding& spec = cb->inter.pb[PBidx].spec;
+  PBMotion&        vec = cb->inter.pb[PBidx].motion;
 
   spec.merge_flag = 0;
   spec.merge_idx  = 0;
@@ -258,6 +265,7 @@ enc_cb* Algo_PB_MV_Search::analyze(encoder_context* ectx,
 
   ectx->img->set_mv_info(x,y,pbW,pbH, vec);
 
+  /* TMP REMOVE: ectx->prediction does not exist anymore
   generate_inter_prediction_samples(ectx, ectx->shdr, ectx->prediction,
                                     cb->x,cb->y, // int xC,int yC,
                                     0,0,         // int xB,int yB,
@@ -265,6 +273,7 @@ enc_cb* Algo_PB_MV_Search::analyze(encoder_context* ectx,
                                     1<<cb->log2Size,
                                     1<<cb->log2Size, // int nPbW,int nPbH,
                                     &vec);
+  */
 
   // --- create residual ---
 
@@ -273,13 +282,16 @@ enc_cb* Algo_PB_MV_Search::analyze(encoder_context* ectx,
   // TODO estimate rate for sending MV
 
   int IntraSplitFlag = 0;
-  int MaxTrafoDepth = ectx->sps.max_transform_hierarchy_depth_inter;
+  int MaxTrafoDepth = ectx->get_sps().max_transform_hierarchy_depth_inter;
 
   mCodeResidual=true;
   if (mCodeResidual) {
+    assert(false);
+    /*
     cb->transform_tree = mTBSplitAlgo->analyze(ectx,ctxModel, ectx->imgdata->input, NULL, cb,
                                                cb->x,cb->y,cb->x,cb->y, cb->log2Size,0,
                                                0, MaxTrafoDepth, IntraSplitFlag);
+    */
 
     cb->inter.rqt_root_cbf = ! cb->transform_tree->isZeroBlock();
 

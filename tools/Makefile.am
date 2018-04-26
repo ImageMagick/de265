@@ -43,4 +43,3 @@ bjoentegaard_CXXFLAGS =
 bjoentegaard_LDFLAGS =
 bjoentegaard_LDADD = ../libde265/libde265.la -lstdc++
 bjoentegaard_SOURCES = bjoentegaard.cc
-

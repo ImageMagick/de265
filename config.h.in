@@ -21,6 +21,9 @@
 /* Support ARM instructions */
 #undef HAVE_ARM
 
+/* Define to 1 if you have the <cstdint> header file. */
+#undef HAVE_CSTDINT
+
 /* define if the compiler supports basic C++11 syntax */
 #undef HAVE_CXX11
 
@@ -132,9 +135,14 @@
 /* Define to 1 if you have the `__mingw_aligned_malloc' function. */
 #undef HAVE___MINGW_ALIGNED_MALLOC
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
+
+/* Define to 1 if a fallback for "nullptr" is required. */
+#undef NEED_NULLPTR_FALLBACK
+
+/* Define to 1 if a fallback for "std::move" is required. */
+#undef NEED_STD_MOVE_FALLBACK
 
 /* Name of package */
 #undef PACKAGE
@@ -170,6 +178,10 @@
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
+
+/* Define to 1 if the std::tr1 namespace should be included in the std
+   namespace. */
+#undef USE_STD_TR1_NAMESPACE
 
 /* Version number of package */
 #undef VERSION

@@ -18,12 +18,16 @@
  * along with libde265.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "libde265/en265.h" //coder-context.h"
+#include "libde265/en265.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "libde265/configparam.h"
 #include "libde265/image-io.h"
-#include "libde265/encoder/analyze.h"
+#include "libde265/encoder/encoder-core.h"
 #include "libde265/util.h"
+#include "image-io-png.h"
 
 #include <getopt.h>
 
@@ -85,6 +89,8 @@ struct inout_params
   option_int input_width;
   option_int input_height;
 
+  option_bool input_is_rgb;
+
   // output
 
   option_string output_filename;
@@ -123,6 +129,10 @@ inout_params::inout_params()
 
   input_height.set_ID("height"); input_height.set_short_option('h');
   input_height.set_minimum(1); input_height.set_default(288);
+
+  input_is_rgb.set_ID("rgb");
+  input_is_rgb.set_default(false);
+  input_is_rgb.set_description("input is sequence of RGB PNG images");
 }
 
 
@@ -134,6 +144,11 @@ void inout_params::register_params(config_parameters& config)
   config.add_option(&max_number_of_frames);
   config.add_option(&input_width);
   config.add_option(&input_height);
+#if HAVE_VIDEOGFX
+  if (videogfx::PNG_Supported()) {
+    config.add_option(&input_is_rgb);
+  }
+#endif
 }
 
 
@@ -174,6 +189,9 @@ void test_parameters_API(en265_encoder_context* ectx)
 
 extern int skipTBSplit, noskipTBSplit;
 extern int zeroBlockCorrelation[6][2][5];
+
+/*LIBDE265_API*/ ImageSink_YUV reconstruction_sink;
+
 
 int main(int argc, char** argv)
 {
@@ -224,7 +242,7 @@ int main(int argc, char** argv)
     fprintf(stderr," enc265  v%s\n", de265_get_version());
     fprintf(stderr,"--------------\n");
     fprintf(stderr,"usage: enc265 [options]\n");
-    fprintf(stderr,"The video file must be a raw YUV file\n");
+    fprintf(stderr,"The video file must be a raw YUV file or a PNG sequence for RGB input\n");
     fprintf(stderr,"\n");
     fprintf(stderr,"options:\n");
     fprintf(stderr,"      --help         show help\n");
@@ -240,6 +258,7 @@ int main(int argc, char** argv)
 
 
   de265_set_verbosity(verbosity);
+
 #if HAVE_VIDEOGFX
   //debug_set_image_output(debug_show_image_libvideogfx);
 #endif
@@ -247,16 +266,31 @@ int main(int argc, char** argv)
   //test_parameters_API(ectx);
 
 
-  ImageSink_YUV reconstruction_sink;
   if (strlen(inout_params.reconstruction_yuv.get().c_str()) != 0) {
     reconstruction_sink.set_filename(inout_params.reconstruction_yuv.get().c_str());
     //ectx.reconstruction_sink = &reconstruction_sink;
   }
 
-  ImageSource_YUV image_source;
-  image_source.set_input_file(inout_params.input_yuv.get().c_str(),
-                              inout_params.input_width,
-                              inout_params.input_height);
+  ImageSource* image_source;
+  ImageSource_YUV image_source_yuv;
+#if HAVE_VIDEOGFX
+  ImageSource_PNG image_source_png;
+#endif
+
+
+  if (inout_params.input_is_rgb) {
+#if HAVE_VIDEOGFX
+    image_source_png.set_input_file(inout_params.input_yuv.get().c_str());
+    image_source = &image_source_png;
+#endif
+  }
+  else {
+    image_source_yuv.set_input_file(inout_params.input_yuv.get().c_str(),
+                                    inout_params.input_width,
+                                    inout_params.input_height);
+    image_source = &image_source_yuv;
+  }
+
 
   PacketSink_File packet_sink;
   packet_sink.set_filename(inout_params.output_filename.get().c_str());
@@ -264,7 +298,7 @@ int main(int argc, char** argv)
 
   // --- run encoder ---
 
-  image_source.skip_frames( inout_params.first_frame );
+  image_source->skip_frames( inout_params.first_frame );
 
   en265_start_encoder(ectx, 0);
 
@@ -278,7 +312,7 @@ int main(int argc, char** argv)
     {
       // push one image into the encoder
 
-      de265_image* input_image = image_source.get_image();
+      de265_image* input_image = image_source->get_image();
       if (input_image==NULL) {
         en265_push_eof(ectx);
         eof=true;
@@ -306,7 +340,6 @@ int main(int argc, char** argv)
         en265_free_packet(ectx,pck);
       }
     }
-
 
 
   // --- print statistics ---

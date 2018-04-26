@@ -21,12 +21,14 @@
  */
 
 
-#include "libde265/encoder/analyze.h"
+#include "libde265/encoder/encoder-core.h"
 #include "libde265/encoder/encoder-context.h"
+#include "libde265/encoder/encoder-syntax.h"
 #include <assert.h>
 #include <limits>
 #include <math.h>
 #include <iostream>
+#include <fstream>
 
 
 #define ENCODER_DEVELOPMENT 0
@@ -39,6 +41,7 @@ static int MPM_used[7][35];
 static int IntraPredModeCnt_total[35];
 static int MPM_used_total[35];
 
+/*
 void statistics_IntraPredMode(const encoder_context* ectx, int x,int y, const enc_cb* cb)
 {
   if (cb->split_cu_flag) {
@@ -60,7 +63,7 @@ void statistics_IntraPredMode(const encoder_context* ectx, int x,int y, const en
       int xi = childX(x,i,cb->log2Size);
       int yi = childY(y,i,cb->log2Size);
 
-      int candModeList[3];
+      enum IntraPredMode candModeList[3];
       fillIntraPredModeCandidates(candModeList,xi,yi, xi>0, yi>0, ectx->img);
 
       int predmode = cb->intra.pred_mode[i];
@@ -73,6 +76,7 @@ void statistics_IntraPredMode(const encoder_context* ectx, int x,int y, const en
     }
   }
 }
+*/
 
 void statistics_print()
 {
@@ -118,31 +122,31 @@ void print_cb_tree_rates(const enc_cb* cb, int level)
 }
 
 
+// /*LIBDE265_API*/ ImageSink_YUV reconstruction_sink;
+
 double encode_image(encoder_context* ectx,
                     const de265_image* input,
-                    EncodingAlgorithm& algo)
+                    EncoderCore& algo)
 {
   int stride=input->get_image_stride(0);
 
-  int w = ectx->sps.pic_width_in_luma_samples;
-  int h = ectx->sps.pic_height_in_luma_samples;
+  int w = ectx->get_sps().pic_width_in_luma_samples;
+  int h = ectx->get_sps().pic_height_in_luma_samples;
 
   // --- create reconstruction image ---
   ectx->img = new de265_image;
-  ectx->img->vps  = ectx->vps;
-  ectx->img->sps  = ectx->sps;
-  ectx->img->pps  = ectx->pps;
+  ectx->img->set_headers(ectx->get_shared_vps(), ectx->get_shared_sps(), ectx->get_shared_pps());
   ectx->img->PicOrderCntVal = input->PicOrderCntVal;
 
-  ectx->img->alloc_image(w,h, de265_chroma_420, &ectx->sps, true,
+  ectx->img->alloc_image(w,h, input->get_chroma_format(), ectx->get_shared_sps(), true,
                          NULL /* no decctx */, ectx, 0,NULL,false);
   //ectx->img->alloc_encoder_data(&ectx->sps);
   ectx->img->clear_metadata();
 
-#if 1
+#if 0
   if (1) {
     ectx->prediction = new de265_image;
-    ectx->prediction->alloc_image(w,h, de265_chroma_420, &ectx->sps, false /* no metadata */,
+    ectx->prediction->alloc_image(w,h, input->get_chroma_format(), &ectx->sps, false /* no metadata */,
                                   NULL /* no decctx */, NULL /* no encctx */, 0,NULL,false);
     ectx->prediction->vps = ectx->vps;
     ectx->prediction->sps = ectx->sps;
@@ -150,7 +154,7 @@ double encode_image(encoder_context* ectx,
   }
 #endif
 
-  ectx->active_qp = ectx->pps.pic_init_qp; // TODO take current qp from slice
+  ectx->active_qp = ectx->get_pps().pic_init_qp; // TODO take current qp from slice
 
 
   ectx->cabac_ctx_models.init(ectx->shdr->initType, ectx->shdr->SliceQPY);
@@ -164,17 +168,21 @@ double encode_image(encoder_context* ectx,
   cabacEstim.set_context_models(&modelEstim);
 
 
-  int Log2CtbSize = ectx->sps.Log2CtbSizeY;
+  int Log2CtbSize = ectx->get_sps().Log2CtbSizeY;
 
   uint8_t* luma_plane = ectx->img->get_image_plane(0);
   uint8_t* cb_plane   = ectx->img->get_image_plane(1);
   uint8_t* cr_plane   = ectx->img->get_image_plane(2);
 
+  double mse=0;
+
 
   // encode CTB by CTB
 
-  for (int y=0;y<ectx->sps.PicHeightInCtbsY;y++)
-    for (int x=0;x<ectx->sps.PicWidthInCtbsY;x++)
+  ectx->ctbs.clear();
+
+  for (int y=0;y<ectx->get_sps().PicHeightInCtbsY;y++)
+    for (int x=0;x<ectx->get_sps().PicWidthInCtbsY;x++)
       {
         ectx->img->set_SliceAddrRS(x, y, ectx->shdr->SliceAddrRS);
 
@@ -235,6 +243,24 @@ double encode_image(encoder_context* ectx,
 
         enable_logging(LogSymbols);
 
+        logdebug(LogEncoder,"write CTB %d;%d\n",x,y);
+
+        if (logdebug_enabled(LogEncoder)) {
+          cb->debug_dumpTree(enc_tb::DUMPTREE_ALL);
+        }
+
+        /*
+        cb->debug_assertTreeConsistency(ectx->img);
+
+        //cb->invalidateMetadataInSubTree(ectx->img);
+        cb->writeMetadata(ectx, ectx->img,
+                          enc_node::METADATA_INTRA_MODES |
+                          enc_node::METADATA_RECONSTRUCTION |
+                          enc_node::METADATA_CT_DEPTH);
+
+        cb->debug_assertTreeConsistency(ectx->img);
+        */
+
         encode_ctb(ectx, &ectx->cabac_encoder, cb, x,y);
 
         //printf("================================================== WRITE\n");
@@ -252,34 +278,57 @@ double encode_image(encoder_context* ectx,
         }
 
 
-        int last = (y==ectx->sps.PicHeightInCtbsY-1 &&
-                    x==ectx->sps.PicWidthInCtbsY-1);
+        int last = (y==ectx->get_sps().PicHeightInCtbsY-1 &&
+                    x==ectx->get_sps().PicWidthInCtbsY-1);
         ectx->cabac_encoder.write_CABAC_term_bit(last);
 
-
-        delete cb;
+        //delete cb;
 
         //ectx->free_all_pools();
+
+        mse += cb->distortion;
       }
+
+  mse /= ectx->img->get_width() * ectx->img->get_height();
+
+
+  //reconstruction_sink.send_image(ectx->img);
 
 
   //statistics_print();
 
 
-  delete ectx->prediction;
+  //delete ectx->prediction;
 
 
   // frame PSNR
 
-  double psnr = PSNR(MSE(input->get_image_plane(0), input->get_image_stride(0),
-                         luma_plane, ectx->img->get_image_stride(0),
-                         input->get_width(), input->get_height()));
+  ectx->ctbs.writeReconstructionToImage(ectx->img, &ectx->get_sps());
+
+#if 0
+  std::ofstream ostr("out.pgm");
+  ostr << "P5\n" << ectx->img->get_width() << " " << ectx->img->get_height() << "\n255\n";
+  for (int y=0;y<ectx->img->get_height();y++) {
+    ostr.write( (char*)ectx->img->get_image_plane_at_pos(0,0,y), ectx->img->get_width() );
+  }
+#endif
+
+  double psnr = 10*log10(255.0*255.0 / mse);
+
+#if 0
+  double psnr2 = PSNR(MSE(input->get_image_plane(0), input->get_image_stride(0),
+                          luma_plane, ectx->img->get_image_stride(0),
+                          input->get_width(), input->get_height()));
+
+  printf("rate-estim PSNR: %f vs %f\n",psnr,psnr2);
+#endif
+
   return psnr;
 }
 
 
 
-void EncodingAlgorithm_Custom::setParams(encoder_params& params)
+void EncoderCore_Custom::setParams(encoder_params& params)
 {
   // build algorithm tree
 
@@ -335,6 +384,14 @@ void EncodingAlgorithm_Custom::setParams(encoder_params& params)
   algo_CB_IntraPartMode->setChildAlgo(algo_TB_IntraPredMode);
 
   mAlgo_TB_Split_BruteForce.setAlgo_TB_IntraPredMode(algo_TB_IntraPredMode);
+  mAlgo_TB_Split_BruteForce.setAlgo_TB_Residual(&mAlgo_TB_Transform);
+
+  Algo_TB_RateEstimation* algo_TB_RateEstimation = NULL;
+  switch (params.mAlgo_TB_RateEstimation()) {
+  case ALGO_TB_RateEstimation_None:  algo_TB_RateEstimation = &mAlgo_TB_RateEstimation_None;  break;
+  case ALGO_TB_RateEstimation_Exact: algo_TB_RateEstimation = &mAlgo_TB_RateEstimation_Exact; break;
+  }
+  mAlgo_TB_Transform.setAlgo_TB_RateEstimation(algo_TB_RateEstimation);
   //mAlgo_TB_Split_BruteForce.setParams(params.TB_Split_BruteForce);
 
   algo_TB_IntraPredMode->setChildAlgo(&mAlgo_TB_Split_BruteForce);

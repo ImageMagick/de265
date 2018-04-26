@@ -4,7 +4,7 @@
 CFLAGS=/I..\extra /I.. /I.
 CC=cl /nologo
 LINK=link /nologo /subsystem:console
-DEFINES=/DWIN32 /D_WIN32_WINNT=0x0400 /DNDEBUG /DLIBDE265_EXPORTS /D_CRT_SECURE_NO_WARNINGS /DHAVE_SSE4_1 /DNOMINMAX
+DEFINES=/DWIN32 /D_WIN32_WINNT=0x0400 /DNDEBUG /DLIBDE265_EXPORTS /D_CRT_SECURE_NO_WARNINGS /DHAVE_SSE4_1 /DNOMINMAX /DHAVE_STDINT_H
 
 CFLAGS=$(CFLAGS) /MT /Ox /Ob2 /Oi /TP /W4 /GL /EHsc
 
@@ -64,10 +64,11 @@ OBJS=\
 	visualize.obj \
 	vps.obj \
         vui.obj \
-	encoder\analyze.obj \
-	encoder\encode.obj \
+	encoder\encoder-core.obj \
+	encoder\encoder-types.obj \
 	encoder\encoder-context.obj \
 	encoder\encoder-params.obj \
+	encoder\encoder-syntax.obj \
 	encoder\encpicbuf.obj \
 	encoder\sop.obj \
 	encoder\algo\algo.obj \
@@ -81,7 +82,9 @@ OBJS=\
 	encoder\algo\ctb-qscale.obj \
 	encoder\algo\pb-mv.obj \
 	encoder\algo\tb-intrapredmode.obj \
+	encoder\algo\tb-rateestim.obj \
 	encoder\algo\tb-split.obj \
+	encoder\algo\tb-transform.obj \
 	x86\sse.obj \
 	x86\sse-dct.obj \
 	x86\sse-motion.obj \

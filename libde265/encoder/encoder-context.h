@@ -54,7 +54,7 @@ class encoder_context : public base_context
   encoder_params params;
   config_parameters params_config;
 
-  EncodingAlgorithm_Custom algo;
+  EncoderCore_Custom algo;
 
   int image_width, image_height;
   bool image_spec_is_defined;  // whether we know the input image size
@@ -69,9 +69,11 @@ class encoder_context : public base_context
 
   // quick links
   de265_image* img; // reconstruction
-  de265_image* prediction;
+  //de265_image* prediction;
   image_data* imgdata; // input image
   slice_segment_header* shdr;
+
+  CTBTreeMatrix ctbs;
 
   // temporary memory for motion compensated pixels (when CB-algo passes this down to TB-algo)
   //uint8_t prediction[3][64*64]; // stride: 1<<(cb->log2Size)
@@ -82,11 +84,23 @@ class encoder_context : public base_context
   /*int target_qp;*/ /* QP we want to code at.
                      (Not actually the real QP. Check image.get_QPY() for that.) */
 
-  video_parameter_set  vps;
-  seq_parameter_set    sps;
-  pic_parameter_set    pps;
+  const seq_parameter_set& get_sps() const { return *sps; }
+  const pic_parameter_set& get_pps() const { return *pps; }
+
+  seq_parameter_set& get_sps() { return *sps; }
+  pic_parameter_set& get_pps() { return *pps; }
+
+  std::shared_ptr<video_parameter_set>& get_shared_vps() { return vps; }
+  std::shared_ptr<seq_parameter_set>& get_shared_sps() { return sps; }
+  std::shared_ptr<pic_parameter_set>& get_shared_pps() { return pps; }
+
+ private:
+  std::shared_ptr<video_parameter_set>  vps;
+  std::shared_ptr<seq_parameter_set>    sps;
+  std::shared_ptr<pic_parameter_set>    pps;
   //slice_segment_header shdr;
 
+ public:
   bool parameters_have_been_set;
   bool headers_have_been_sent;
 

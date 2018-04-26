@@ -25,7 +25,7 @@
 
 #include "libde265/nal-parser.h"
 #include "libde265/decctx.h"
-#include "libde265/encoder/encode.h"
+#include "libde265/encoder/encoder-types.h"
 #include "libde265/slice.h"
 #include "libde265/scan.h"
 #include "libde265/intrapred.h"
@@ -36,6 +36,7 @@
 #include "libde265/configparam.h"
 
 #include "libde265/encoder/algo/tb-intrapredmode.h"
+#include "libde265/encoder/algo/tb-transform.h"
 #include "libde265/encoder/algo/tb-split.h"
 #include "libde265/encoder/algo/cb-intrapartmode.h"
 #include "libde265/encoder/algo/cb-interpartmode.h"
@@ -66,10 +67,10 @@
 
 // ========== an encoding algorithm combines a set of algorithm modules ==========
 
-class EncodingAlgorithm
+class EncoderCore
 {
  public:
-  virtual ~EncodingAlgorithm() { }
+  virtual ~EncoderCore() { }
 
   virtual Algo_CTB_QScale* getAlgoCTBQScale() = 0;
 
@@ -78,7 +79,7 @@ class EncodingAlgorithm
 };
 
 
-class EncodingAlgorithm_Custom : public EncodingAlgorithm
+class EncoderCore_Custom : public EncoderCore
 {
  public:
 
@@ -120,11 +121,15 @@ class EncodingAlgorithm_Custom : public EncodingAlgorithm
   Algo_TB_IntraPredMode_BruteForce  mAlgo_TB_IntraPredMode_BruteForce;
   Algo_TB_IntraPredMode_FastBrute   mAlgo_TB_IntraPredMode_FastBrute;
   Algo_TB_IntraPredMode_MinResidual mAlgo_TB_IntraPredMode_MinResidual;
+
+  Algo_TB_Transform                 mAlgo_TB_Transform;
+  Algo_TB_RateEstimation_None       mAlgo_TB_RateEstimation_None;
+  Algo_TB_RateEstimation_Exact      mAlgo_TB_RateEstimation_Exact;
 };
 
 
 
-double encode_image(encoder_context*, const de265_image* input, EncodingAlgorithm&);
+double encode_image(encoder_context*, const de265_image* input, EncoderCore&);
 
 void encode_sequence(encoder_context*);
 

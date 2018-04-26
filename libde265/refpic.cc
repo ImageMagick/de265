@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
 # include <malloc.h>
-#else
+#elif defined(HAVE_ALLOCA_H)
 # include <alloca.h>
 #endif
 
@@ -254,6 +254,13 @@ bool read_short_term_ref_pic_set(error_queue* errqueue,
 
     int num_negative_pics = get_uvlc(br);
     int num_positive_pics = get_uvlc(br);
+
+    if (num_negative_pics == UVLC_ERROR ||
+        num_positive_pics == UVLC_ERROR) {
+      // invalid num-ref-pics value
+      errqueue->add_warning(DE265_WARNING_MAX_NUM_REF_PICS_EXCEEDED, false);
+      return false;
+    }
 
     // total number of reference pictures may not exceed buffer capacity
     if (num_negative_pics + num_positive_pics >

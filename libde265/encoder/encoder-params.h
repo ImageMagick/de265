@@ -23,8 +23,8 @@
 #ifndef ENCODER_PARAMS_H
 #define ENCODER_PARAMS_H
 
-#include "libde265/encoder/encode.h"
-#include "libde265/encoder/analyze.h"
+#include "libde265/encoder/encoder-types.h"
+#include "libde265/encoder/encoder-core.h"
 #include "libde265/encoder/sop.h"
 
 
@@ -88,6 +88,7 @@ struct encoder_params
   option_int max_tb_size;
 
   option_int max_transform_hierarchy_depth_intra;
+  option_int max_transform_hierarchy_depth_inter;
 
 
   option_SOP_Structure sop_structure;
@@ -132,6 +133,7 @@ struct encoder_params
   // rate-control
 
   enum RateControlMethod rateControlMethod;
+  option_ALGO_TB_RateEstimation mAlgo_TB_RateEstimation;
 
   //int constant_QP;
   //int lambda;

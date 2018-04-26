@@ -25,7 +25,6 @@
 
 #include "libde265/nal-parser.h"
 #include "libde265/decctx.h"
-#include "libde265/encoder/encode.h"
 #include "libde265/slice.h"
 #include "libde265/scan.h"
 #include "libde265/intrapred.h"
@@ -50,6 +49,8 @@ class Algo_CB_IntraInter : public Algo_CB
 
   void setIntraChildAlgo(Algo_CB* algo) { mIntraAlgo = algo; }
   void setInterChildAlgo(Algo_CB* algo) { mInterAlgo = algo; }
+
+  virtual const char* name() const { return "cb-intra-inter"; }
 
  protected:
   Algo_CB* mIntraAlgo;

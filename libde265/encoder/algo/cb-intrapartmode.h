@@ -25,7 +25,7 @@
 
 #include "libde265/nal-parser.h"
 #include "libde265/decctx.h"
-#include "libde265/encoder/encode.h"
+#include "libde265/encoder/encoder-types.h"
 #include "libde265/slice.h"
 #include "libde265/scan.h"
 #include "libde265/intrapred.h"
@@ -83,6 +83,8 @@ class Algo_CB_IntraPartMode : public Algo_CB
 
   void setChildAlgo(Algo_TB_IntraPredMode* algo) { mTBIntraPredModeAlgo = algo; }
 
+  virtual const char* name() const { return "cb-intrapartmode"; }
+
  protected:
   Algo_TB_IntraPredMode* mTBIntraPredModeAlgo;
 };
@@ -95,6 +97,8 @@ class Algo_CB_IntraPartMode_BruteForce : public Algo_CB_IntraPartMode
   virtual enc_cb* analyze(encoder_context*,
                           context_model_table&,
                           enc_cb* cb);
+
+  virtual const char* name() const { return "cb-intrapartmode-bruteforce"; }
 };
 
 
@@ -134,6 +138,8 @@ class Algo_CB_IntraPartMode_Fixed : public Algo_CB_IntraPartMode
   virtual enc_cb* analyze(encoder_context* ectx,
                           context_model_table& ctxModel,
                           enc_cb* cb);
+
+  virtual const char* name() const { return "cb-intrapartmode-fixed"; }
 
  private:
   params mParams;

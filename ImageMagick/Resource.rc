@@ -1,7 +1,7 @@
 #include "winver.h"
 
-#define THIS_PROJECT_VERSION_NUM		1,0,2
-#define THIS_PROJECT_VERSION_STRING		"1.0.2 (14 Jul 2015)"
+#define THIS_PROJECT_VERSION_NUM		1,0,3
+#define THIS_PROJECT_VERSION_STRING		"1.0.3 (19 April 2018)"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -33,7 +33,7 @@ BEGIN
             VALUE "FileVersion", THIS_PROJECT_VERSION_STRING "\0"
             VALUE "ProductVersion", THIS_PROJECT_VERSION_STRING "\0"
             VALUE "CompanyName", "Struktur AG.\0"
-            VALUE "LegalCopyright", "Copyright (c) 2013-2014 Struktur AG.\0"
+            VALUE "LegalCopyright", "Copyright (c) 2013-2018 Struktur AG.\0"
             VALUE "Comments", "https://github.com/strukturag/libde265\0"
         END
     END

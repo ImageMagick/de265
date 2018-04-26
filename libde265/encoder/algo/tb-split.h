@@ -25,7 +25,8 @@
 
 #include "libde265/nal-parser.h"
 #include "libde265/decctx.h"
-#include "libde265/encoder/encode.h"
+#include "libde265/encoder/encoder-types.h"
+#include "libde265/encoder/algo/algo.h"
 #include "libde265/slice.h"
 #include "libde265/scan.h"
 #include "libde265/intrapred.h"
@@ -36,64 +37,37 @@
 #include "libde265/configparam.h"
 
 #include "libde265/encoder/algo/tb-intrapredmode.h"
-
-
-/*  Encoder search tree, bottom up:
-
-    - Algo_TB_Split - whether TB is split or not
-
-    - Algo_TB_IntraPredMode - choose the intra prediction mode (or NOP, if at the wrong tree level)
-
-    - Algo_CB_IntraPartMode - choose between NxN and 2Nx2N intra parts
-
-    - Algo_CB_Split - whether CB is split or not
-
-    - Algo_CTB_QScale - select QScale on CTB granularity
- */
-
-/*
-struct ResidualBlock
-{
-  const int16_t* data[4];
-  int            stride[4];
-};
-*/
-
-void diff_blk(int16_t* out,int out_stride,
-              const uint8_t* a_ptr, int a_stride,
-              const uint8_t* b_ptr, int b_stride,
-              int blkSize);
+#include "libde265/encoder/algo/tb-rateestim.h"
+#include "libde265/encoder/algo/tb-transform.h"
 
 
 // ========== TB split decision ==========
 
-class Algo_TB_Split
+class Algo_TB_Split : public Algo
 {
  public:
-  Algo_TB_Split() : mAlgo_TB_IntraPredMode(NULL) { }
+ Algo_TB_Split() : mAlgo_TB_IntraPredMode(NULL) { }
   virtual ~Algo_TB_Split() { }
 
   virtual enc_tb* analyze(encoder_context*,
                           context_model_table&,
                           const de265_image* input,
-                          const enc_tb* parent,
-                          enc_cb* cb,
-                          int x0,int y0, int xBase,int yBase, int log2TbSize,
-                          int blkIdx,
+                          enc_tb* tb,
                           int TrafoDepth, int MaxTrafoDepth, int IntraSplitFlag) = 0;
 
   void setAlgo_TB_IntraPredMode(Algo_TB_IntraPredMode* algo) { mAlgo_TB_IntraPredMode=algo; }
+  void setAlgo_TB_Residual(Algo_TB_Residual* algo) { mAlgo_TB_Residual=algo; }
 
  protected:
   enc_tb* encode_transform_tree_split(encoder_context* ectx,
                                       context_model_table& ctxModel,
                                       const de265_image* input,
-                                      const enc_tb* parent,
+                                      enc_tb* tb,
                                       enc_cb* cb,
-                                      int x0,int y0, int log2TbSize,
                                       int TrafoDepth, int MaxTrafoDepth, int IntraSplitFlag);
 
   Algo_TB_IntraPredMode* mAlgo_TB_IntraPredMode;
+  Algo_TB_Residual*      mAlgo_TB_Residual;
 };
 
 
@@ -118,6 +92,7 @@ class option_ALGO_TB_Split_BruteForce_ZeroBlockPrune
   }
 };
 
+
 class Algo_TB_Split_BruteForce : public Algo_TB_Split
 {
  public:
@@ -139,11 +114,10 @@ class Algo_TB_Split_BruteForce : public Algo_TB_Split
   virtual enc_tb* analyze(encoder_context*,
                           context_model_table&,
                           const de265_image* input,
-                          const enc_tb* parent,
-                          enc_cb* cb,
-                          int x0,int y0, int xBase,int yBase, int log2TbSize,
-                          int blkIdx,
+                          enc_tb* tb,
                           int TrafoDepth, int MaxTrafoDepth, int IntraSplitFlag);
+
+  const char* name() const { return "tb-split-bruteforce"; }
 
  private:
   params mParams;
