@@ -92,12 +92,15 @@ host_triplet = @host@
 target_triplet = @target@
 @HAVE_VISIBILITY_TRUE@am__append_1 = -DHAVE_VISIBILITY
 @HAVE_VISIBILITY_TRUE@am__append_2 = -DHAVE_VISIBILITY
-@ENABLE_SSE_OPT_TRUE@am__append_3 = x86
-@ENABLE_SSE_OPT_TRUE@am__append_4 = x86/libde265_x86.la
-@ENABLE_ARM_OPT_TRUE@am__append_5 = arm
-@ENABLE_ARM_OPT_TRUE@am__append_6 = arm/libde265_arm.la
-@MINGW_TRUE@am__append_7 = ../extra/win32cond.c ../extra/win32cond.h
-@MINGW_TRUE@am__append_8 = -no-undefined -static-libgcc -static-libstdc++
+@ENABLE_ENCODER_TRUE@am__append_3 = en265.h en265.cc
+@ENABLE_ENCODER_TRUE@am__append_4 = encoder
+@ENABLE_ENCODER_TRUE@am__append_5 = encoder/libde265_encoder.la
+@ENABLE_SSE_OPT_TRUE@am__append_6 = x86
+@ENABLE_SSE_OPT_TRUE@am__append_7 = x86/libde265_x86.la
+@ENABLE_ARM_OPT_TRUE@am__append_8 = arm
+@ENABLE_ARM_OPT_TRUE@am__append_9 = arm/libde265_arm.la
+@MINGW_TRUE@am__append_10 = ../extra/win32cond.c ../extra/win32cond.h
+@MINGW_TRUE@am__append_11 = -no-undefined -static-libgcc -static-libstdc++
 subdir = libde265
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_compare_version.m4 \
@@ -144,40 +147,40 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(libde265_ladir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libde265_la_DEPENDENCIES = encoder/libde265_encoder.la $(am__append_4) \
-	$(am__append_6)
+libde265_la_DEPENDENCIES = $(am__append_5) $(am__append_7) \
+	$(am__append_9)
 am__libde265_la_SOURCES_DIST = acceleration.h alloc_pool.h \
 	alloc_pool.cc bitstream.cc bitstream.h cabac.cc cabac.h \
 	configparam.cc configparam.h contextmodel.cc contextmodel.h \
-	de265.cc deblock.cc deblock.h decctx.cc decctx.h en265.h \
-	en265.cc fallback.cc fallback.h fallback-dct.h fallback-dct.cc \
-	fallback-motion.cc fallback-motion.h dpb.cc dpb.h image.cc \
-	image.h image-io.h image-io.cc intrapred.cc intrapred.h md5.cc \
-	md5.h motion.cc motion.h nal.cc nal.h nal-parser.cc \
-	nal-parser.h pps.cc pps.h quality.cc quality.h refpic.cc \
-	refpic.h sao.cc sao.h scan.cc scan.h sei.cc sei.h slice.cc \
-	slice.h sps.cc sps.h threads.cc threads.h transform.cc \
-	transform.h util.cc util.h visualize.cc visualize.h vps.cc \
-	vps.h vui.cc vui.h ../extra/win32cond.c ../extra/win32cond.h
+	de265.cc deblock.cc deblock.h decctx.cc decctx.h fallback.cc \
+	fallback.h fallback-dct.h fallback-dct.cc fallback-motion.cc \
+	fallback-motion.h dpb.cc dpb.h image.cc image.h image-io.h \
+	image-io.cc intrapred.cc intrapred.h md5.cc md5.h motion.cc \
+	motion.h nal.cc nal.h nal-parser.cc nal-parser.h pps.cc pps.h \
+	quality.cc quality.h refpic.cc refpic.h sao.cc sao.h scan.cc \
+	scan.h sei.cc sei.h slice.cc slice.h sps.cc sps.h threads.cc \
+	threads.h transform.cc transform.h util.cc util.h visualize.cc \
+	visualize.h vps.cc vps.h vui.cc vui.h en265.h en265.cc \
+	../extra/win32cond.c ../extra/win32cond.h
+@ENABLE_ENCODER_TRUE@am__objects_1 = libde265_la-en265.lo
 am__dirstamp = $(am__leading_dot)dirstamp
-@MINGW_TRUE@am__objects_1 = ../extra/libde265_la-win32cond.lo
+@MINGW_TRUE@am__objects_2 = ../extra/libde265_la-win32cond.lo
 am_libde265_la_OBJECTS = libde265_la-alloc_pool.lo \
 	libde265_la-bitstream.lo libde265_la-cabac.lo \
 	libde265_la-configparam.lo libde265_la-contextmodel.lo \
 	libde265_la-de265.lo libde265_la-deblock.lo \
-	libde265_la-decctx.lo libde265_la-en265.lo \
-	libde265_la-fallback.lo libde265_la-fallback-dct.lo \
-	libde265_la-fallback-motion.lo libde265_la-dpb.lo \
-	libde265_la-image.lo libde265_la-image-io.lo \
-	libde265_la-intrapred.lo libde265_la-md5.lo \
-	libde265_la-motion.lo libde265_la-nal.lo \
+	libde265_la-decctx.lo libde265_la-fallback.lo \
+	libde265_la-fallback-dct.lo libde265_la-fallback-motion.lo \
+	libde265_la-dpb.lo libde265_la-image.lo \
+	libde265_la-image-io.lo libde265_la-intrapred.lo \
+	libde265_la-md5.lo libde265_la-motion.lo libde265_la-nal.lo \
 	libde265_la-nal-parser.lo libde265_la-pps.lo \
 	libde265_la-quality.lo libde265_la-refpic.lo \
 	libde265_la-sao.lo libde265_la-scan.lo libde265_la-sei.lo \
 	libde265_la-slice.lo libde265_la-sps.lo libde265_la-threads.lo \
 	libde265_la-transform.lo libde265_la-util.lo \
 	libde265_la-visualize.lo libde265_la-vps.lo libde265_la-vui.lo \
-	$(am__objects_1)
+	$(am__objects_1) $(am__objects_2)
 libde265_la_OBJECTS = $(am_libde265_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -466,26 +469,25 @@ libde265_la_CPPFLAGS =
 libde265_la_CFLAGS = $(CFLAG_VISIBILITY) -DLIBDE265_EXPORTS \
 	$(am__append_1)
 libde265_la_CXXFLAGS = $(CFLAG_VISIBILITY) -DLIBDE265_EXPORTS \
-	$(am__append_2)
+	-I$(top_srcdir) $(am__append_2)
 libde265_la_LDFLAGS = -version-info \
 	$(LIBDE265_CURRENT):$(LIBDE265_REVISION):$(LIBDE265_AGE) \
-	$(am__append_8)
+	$(am__append_11)
 libde265_la_SOURCES = acceleration.h alloc_pool.h alloc_pool.cc \
 	bitstream.cc bitstream.h cabac.cc cabac.h configparam.cc \
 	configparam.h contextmodel.cc contextmodel.h de265.cc \
-	deblock.cc deblock.h decctx.cc decctx.h en265.h en265.cc \
-	fallback.cc fallback.h fallback-dct.h fallback-dct.cc \
-	fallback-motion.cc fallback-motion.h dpb.cc dpb.h image.cc \
-	image.h image-io.h image-io.cc intrapred.cc intrapred.h md5.cc \
-	md5.h motion.cc motion.h nal.cc nal.h nal-parser.cc \
-	nal-parser.h pps.cc pps.h quality.cc quality.h refpic.cc \
-	refpic.h sao.cc sao.h scan.cc scan.h sei.cc sei.h slice.cc \
-	slice.h sps.cc sps.h threads.cc threads.h transform.cc \
-	transform.h util.cc util.h visualize.cc visualize.h vps.cc \
-	vps.h vui.cc vui.h $(am__append_7)
-SUBDIRS = encoder $(am__append_3) $(am__append_5)
-libde265_la_LIBADD = encoder/libde265_encoder.la $(am__append_4) \
-	$(am__append_6)
+	deblock.cc deblock.h decctx.cc decctx.h fallback.cc fallback.h \
+	fallback-dct.h fallback-dct.cc fallback-motion.cc \
+	fallback-motion.h dpb.cc dpb.h image.cc image.h image-io.h \
+	image-io.cc intrapred.cc intrapred.h md5.cc md5.h motion.cc \
+	motion.h nal.cc nal.h nal-parser.cc nal-parser.h pps.cc pps.h \
+	quality.cc quality.h refpic.cc refpic.h sao.cc sao.h scan.cc \
+	scan.h sei.cc sei.h slice.cc slice.h sps.cc sps.h threads.cc \
+	threads.h transform.cc transform.h util.cc util.h visualize.cc \
+	visualize.h vps.cc vps.h vui.cc vui.h $(am__append_3) \
+	$(am__append_10)
+SUBDIRS = $(am__append_4) $(am__append_6) $(am__append_8)
+libde265_la_LIBADD = $(am__append_5) $(am__append_7) $(am__append_9)
 EXTRA_DIST = Makefile.vc7 \
   CMakeLists.txt \
   ../extra/stdbool.h \
@@ -732,13 +734,6 @@ libde265_la-decctx.lo: decctx.cc
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libde265_la_CPPFLAGS) $(CPPFLAGS) $(libde265_la_CXXFLAGS) $(CXXFLAGS) -c -o libde265_la-decctx.lo `test -f 'decctx.cc' || echo '$(srcdir)/'`decctx.cc
 
-libde265_la-en265.lo: en265.cc
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libde265_la_CPPFLAGS) $(CPPFLAGS) $(libde265_la_CXXFLAGS) $(CXXFLAGS) -MT libde265_la-en265.lo -MD -MP -MF $(DEPDIR)/libde265_la-en265.Tpo -c -o libde265_la-en265.lo `test -f 'en265.cc' || echo '$(srcdir)/'`en265.cc
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libde265_la-en265.Tpo $(DEPDIR)/libde265_la-en265.Plo
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='en265.cc' object='libde265_la-en265.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libde265_la_CPPFLAGS) $(CPPFLAGS) $(libde265_la_CXXFLAGS) $(CXXFLAGS) -c -o libde265_la-en265.lo `test -f 'en265.cc' || echo '$(srcdir)/'`en265.cc
-
 libde265_la-fallback.lo: fallback.cc
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libde265_la_CPPFLAGS) $(CPPFLAGS) $(libde265_la_CXXFLAGS) $(CXXFLAGS) -MT libde265_la-fallback.lo -MD -MP -MF $(DEPDIR)/libde265_la-fallback.Tpo -c -o libde265_la-fallback.lo `test -f 'fallback.cc' || echo '$(srcdir)/'`fallback.cc
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libde265_la-fallback.Tpo $(DEPDIR)/libde265_la-fallback.Plo
@@ -913,6 +908,13 @@ libde265_la-vui.lo: vui.cc
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='vui.cc' object='libde265_la-vui.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libde265_la_CPPFLAGS) $(CPPFLAGS) $(libde265_la_CXXFLAGS) $(CXXFLAGS) -c -o libde265_la-vui.lo `test -f 'vui.cc' || echo '$(srcdir)/'`vui.cc
+
+libde265_la-en265.lo: en265.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libde265_la_CPPFLAGS) $(CPPFLAGS) $(libde265_la_CXXFLAGS) $(CXXFLAGS) -MT libde265_la-en265.lo -MD -MP -MF $(DEPDIR)/libde265_la-en265.Tpo -c -o libde265_la-en265.lo `test -f 'en265.cc' || echo '$(srcdir)/'`en265.cc
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libde265_la-en265.Tpo $(DEPDIR)/libde265_la-en265.Plo
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='en265.cc' object='libde265_la-en265.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libde265_la_CPPFLAGS) $(CPPFLAGS) $(libde265_la_CXXFLAGS) $(CXXFLAGS) -c -o libde265_la-en265.lo `test -f 'en265.cc' || echo '$(srcdir)/'`en265.cc
 
 mostlyclean-libtool:
 	-rm -f *.lo

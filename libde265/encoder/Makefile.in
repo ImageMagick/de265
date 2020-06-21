@@ -112,6 +112,8 @@ am_libde265_encoder_la_OBJECTS = libde265_encoder_la-encoder-core.lo \
 	libde265_encoder_la-encoder-params.lo \
 	libde265_encoder_la-encoder-context.lo \
 	libde265_encoder_la-encoder-syntax.lo \
+	libde265_encoder_la-encoder-intrapred.lo \
+	libde265_encoder_la-encoder-motion.lo \
 	libde265_encoder_la-encpicbuf.lo libde265_encoder_la-sop.lo
 libde265_encoder_la_OBJECTS = $(am_libde265_encoder_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -392,13 +394,15 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 noinst_LTLIBRARIES = libde265_encoder.la
-libde265_encoder_la_CXXFLAGS = -I..
+libde265_encoder_la_CXXFLAGS = -I$(top_srcdir) -I$(top_builddir) -I$(top_srcdir)/libde265
 libde265_encoder_la_SOURCES = \
   encoder-core.cc encoder-core.h \
   encoder-types.h encoder-types.cc \
   encoder-params.h encoder-params.cc \
   encoder-context.h encoder-context.cc \
   encoder-syntax.h encoder-syntax.cc \
+  encoder-intrapred.h encoder-intrapred.cc \
+  encoder-motion.h encoder-motion.cc \
   encpicbuf.h encpicbuf.cc \
   sop.h sop.cc
 
@@ -463,6 +467,8 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libde265_encoder_la-encoder-context.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libde265_encoder_la-encoder-core.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libde265_encoder_la-encoder-intrapred.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libde265_encoder_la-encoder-motion.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libde265_encoder_la-encoder-params.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libde265_encoder_la-encoder-syntax.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libde265_encoder_la-encoder-types.Plo@am__quote@
@@ -524,6 +530,20 @@ libde265_encoder_la-encoder-syntax.lo: encoder-syntax.cc
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='encoder-syntax.cc' object='libde265_encoder_la-encoder-syntax.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libde265_encoder_la_CXXFLAGS) $(CXXFLAGS) -c -o libde265_encoder_la-encoder-syntax.lo `test -f 'encoder-syntax.cc' || echo '$(srcdir)/'`encoder-syntax.cc
+
+libde265_encoder_la-encoder-intrapred.lo: encoder-intrapred.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libde265_encoder_la_CXXFLAGS) $(CXXFLAGS) -MT libde265_encoder_la-encoder-intrapred.lo -MD -MP -MF $(DEPDIR)/libde265_encoder_la-encoder-intrapred.Tpo -c -o libde265_encoder_la-encoder-intrapred.lo `test -f 'encoder-intrapred.cc' || echo '$(srcdir)/'`encoder-intrapred.cc
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libde265_encoder_la-encoder-intrapred.Tpo $(DEPDIR)/libde265_encoder_la-encoder-intrapred.Plo
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='encoder-intrapred.cc' object='libde265_encoder_la-encoder-intrapred.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libde265_encoder_la_CXXFLAGS) $(CXXFLAGS) -c -o libde265_encoder_la-encoder-intrapred.lo `test -f 'encoder-intrapred.cc' || echo '$(srcdir)/'`encoder-intrapred.cc
+
+libde265_encoder_la-encoder-motion.lo: encoder-motion.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libde265_encoder_la_CXXFLAGS) $(CXXFLAGS) -MT libde265_encoder_la-encoder-motion.lo -MD -MP -MF $(DEPDIR)/libde265_encoder_la-encoder-motion.Tpo -c -o libde265_encoder_la-encoder-motion.lo `test -f 'encoder-motion.cc' || echo '$(srcdir)/'`encoder-motion.cc
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libde265_encoder_la-encoder-motion.Tpo $(DEPDIR)/libde265_encoder_la-encoder-motion.Plo
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='encoder-motion.cc' object='libde265_encoder_la-encoder-motion.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libde265_encoder_la_CXXFLAGS) $(CXXFLAGS) -c -o libde265_encoder_la-encoder-motion.lo `test -f 'encoder-motion.cc' || echo '$(srcdir)/'`encoder-motion.cc
 
 libde265_encoder_la-encpicbuf.lo: encpicbuf.cc
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libde265_encoder_la_CXXFLAGS) $(CXXFLAGS) -MT libde265_encoder_la-encpicbuf.lo -MD -MP -MF $(DEPDIR)/libde265_encoder_la-encpicbuf.Tpo -c -o libde265_encoder_la-encpicbuf.lo `test -f 'encpicbuf.cc' || echo '$(srcdir)/'`encpicbuf.cc

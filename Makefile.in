@@ -90,7 +90,8 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 @ENABLE_DEC265_TRUE@am__append_1 = dec265
-@ENABLE_SHERLOCK265_TRUE@am__append_2 = sherlock265
+@ENABLE_ENCODER_TRUE@am__append_2 = enc265
+@ENABLE_SHERLOCK265_TRUE@am__append_3 = sherlock265
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_compare_version.m4 \
@@ -390,8 +391,8 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SUBDIRS = libde265 $(am__append_1) enc265 tools acceleration-speed \
-	$(am__append_2)
+SUBDIRS = libde265 $(am__append_1) $(am__append_2) tools \
+	acceleration-speed $(am__append_3)
 ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = .travis.yml \
   autogen.sh \

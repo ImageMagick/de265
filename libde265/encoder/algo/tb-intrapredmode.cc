@@ -24,6 +24,7 @@
 #include "libde265/encoder/encoder-context.h"
 #include "libde265/encoder/algo/tb-split.h"
 #include "libde265/encoder/algo/coding-options.h"
+#include "libde265/encoder/encoder-intrapred.h"
 #include <assert.h>
 #include <limits>
 #include <math.h>
@@ -303,7 +304,7 @@ Algo_TB_IntraPredMode_MinResidual::analyze(encoder_context* ectx,
     *tb->downPtr = tb;
 
     enum IntraPredMode intraMode;
-    float minDistortion = (std::numeric_limits<float>::max)();
+    float minDistortion = std::numeric_limits<float>::max();
 
     assert(nPredModesEnabled()>=1);
 
@@ -413,7 +414,7 @@ Algo_TB_IntraPredMode_FastBrute::analyze(encoder_context* ectx,
   selectIntraPredMode |= (cb->PredMode==MODE_INTRA && cb->PartMode==PART_NxN   && TrafoDepth==1);
 
   if (selectIntraPredMode) {
-    float minCost = (std::numeric_limits<float>::max)();
+    float minCost = std::numeric_limits<float>::max();
     int   minCostIdx=0;
     float minCandCost;
 
@@ -453,7 +454,7 @@ Algo_TB_IntraPredMode_FastBrute::analyze(encoder_context* ectx,
         //printf("%d -> %f\n",i,distortions[i].second);
       }
 
-    int keepNBest=libde265_min((int)mParams.keepNBest, (int)distortions.size());
+    int keepNBest=std::min((int)mParams.keepNBest, (int)distortions.size());
     distortions.resize(keepNBest);
     distortions.push_back(std::make_pair((enum IntraPredMode)candidates[0],0));
     distortions.push_back(std::make_pair((enum IntraPredMode)candidates[1],0));
