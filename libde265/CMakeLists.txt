@@ -43,6 +43,9 @@ set (libde265_headers
   bitstream.h
   cabac.h
   configparam.h
+  de265-version.h
+  contextmodel.h
+  de265.h
   deblock.h
   decctx.h
   dpb.h
@@ -73,7 +76,7 @@ set (libde265_headers
   vui.h
 )
 
-if(MSVC)
+if(MSVC OR MINGW)
   set (libde265_sources
     ${libde265_sources}
     ../extra/win32cond.c
@@ -85,12 +88,26 @@ add_definitions(-DLIBDE265_EXPORTS)
 
 add_subdirectory (encoder)
 
-if(SUPPORTS_SSE4_1)
-  add_definitions(-DHAVE_SSE4_1)
-  add_subdirectory (x86)
+if(NOT DISABLE_SSE)
+  if (MSVC)
+    set(SUPPORTS_SSE2 1)
+    set(SUPPORTS_SSSE3 1)
+    set(SUPPORTS_SSE4_1 1)
+  else (MSVC)
+    check_c_compiler_flag(-msse2 SUPPORTS_SSE2)
+    check_c_compiler_flag(-mssse3 SUPPORTS_SSSE3)
+    check_c_compiler_flag(-msse4.1 SUPPORTS_SSE4_1)
+  endif (MSVC)
+
+  if(SUPPORTS_SSE4_1)
+    add_definitions(-DHAVE_SSE4_1)
+  endif()
+  if(SUPPORTS_SSE4_1 OR (SUPPORTS_SSE2 AND SUPPORTS_SSSE3))
+    add_subdirectory (x86)
+  endif()
 endif()
 
-add_library(${PROJECT_NAME} SHARED ${libde265_sources} ${ENCODER_OBJECTS} ${X86_OBJECTS})
+add_library(${PROJECT_NAME} ${libde265_sources} ${ENCODER_OBJECTS} ${X86_OBJECTS})
 target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
 
 write_basic_package_version_file(${PROJECT_NAME}ConfigVersion.cmake COMPATIBILITY ExactVersion)
@@ -102,6 +119,7 @@ install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Config
 )
 
 install(FILES ${libde265_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/de265-version.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
 
 install(EXPORT ${PROJECT_NAME}Config DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
