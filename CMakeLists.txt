@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.3.2)
 
 project (libde265
     LANGUAGES C CXX
-    VERSION 1.0.8
+    VERSION 1.0.11
 )
 
 set(CMAKE_CXX_STANDARD 11)
@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # The version number.
-set (NUMERIC_VERSION 0x01000800)
+set (NUMERIC_VERSION 0x01001100)
 set (PACKAGE_VERSION ${PROJECT_VERSION})
 
 include (${CMAKE_ROOT}/Modules/CheckCCompilerFlag.cmake)
@@ -20,22 +20,19 @@ include (${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
 include(GNUInstallDirs)
 include(CheckFunctionExists)
 
-find_package(SDL)
+option(ENABLE_SDL "Enable SDL" ON)
+
+if (ENABLE_SDL)
+	find_package(SDL)
+endif()
+
 find_package(Threads REQUIRED)
 
 CHECK_INCLUDE_FILE(malloc.h HAVE_MALLOC_H)
-CHECK_INCLUDE_FILE(stdint.h HAVE_STDINT_H)
-CHECK_INCLUDE_FILE(stdbool.h HAVE_STDBOOL_H)
 CHECK_FUNCTION_EXISTS(posix_memalign HAVE_POSIX_MEMALIGN)
 
 if (HAVE_MALLOC_H)
   add_definitions(-DHAVE_MALLOC_H)
-endif()
-if (HAVE_STDINT_H)
-  add_definitions(-DHAVE_STDINT_H)
-endif()
-if (HAVE_STDBOOL_H)
-  add_definitions(-DHAVE_STDBOOL_H)
 endif()
 if (HAVE_POSIX_MEMALIGN)
   add_definitions(-DHAVE_POSIX_MEMALIGN)
@@ -59,10 +56,15 @@ include_directories ("${PROJECT_BINARY_DIR}")
 include_directories ("${PROJECT_SOURCE_DIR}/libde265")
 if(MSVC)
   include_directories ("${PROJECT_SOURCE_DIR}/extra")
-  add_definitions(-DHAVE_STDINT_H)
-  add_definitions(-DHAVE_STDBOOL_H)
 endif()
 
+option(ENABLE_DECODER "Enable Decoder" ON)
+option(ENABLE_ENCODER "Enable Encoder" OFF)
+
 add_subdirectory (libde265)
-add_subdirectory (dec265)
-add_subdirectory (enc265)
+if (ENABLE_DECODER)
+  add_subdirectory (dec265)
+endif()
+if (ENABLE_ENCODER)
+  add_subdirectory (enc265)
+endif()
