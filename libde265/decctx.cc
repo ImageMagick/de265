@@ -186,11 +186,11 @@ image_unit::image_unit()
 
 image_unit::~image_unit()
 {
-  for (int i=0;i<slice_units.size();i++) {
+  for (size_t i=0;i<slice_units.size();i++) {
     delete slice_units[i];
   }
 
-  for (int i=0;i<tasks.size();i++) {
+  for (size_t i=0;i<tasks.size();i++) {
     delete tasks[i];
   }
 }
@@ -582,16 +582,17 @@ de265_error decoder_context::read_pps_NAL(bitreader& reader)
   std::shared_ptr<pic_parameter_set> new_pps = std::make_shared<pic_parameter_set>();
 
   bool success = new_pps->read(&reader,this);
+  if (!success) {
+    return DE265_WARNING_PPS_HEADER_INVALID;
+  }
 
   if (param_pps_headers_fd>=0) {
     new_pps->dump(param_pps_headers_fd);
   }
 
-  if (success) {
-    pps[ (int)new_pps->pic_parameter_set_id ] = new_pps;
-  }
+  pps[ (int)new_pps->pic_parameter_set_id ] = new_pps;
 
-  return success ? DE265_OK : DE265_WARNING_PPS_HEADER_INVALID;
+  return DE265_OK;
 }
 
 de265_error decoder_context::read_sei_NAL(bitreader& reader, bool suffix)
@@ -703,7 +704,7 @@ de265_error decoder_context::read_slice_NAL(bitreader& reader, NAL_unit* nal, na
 
 template <class T> void pop_front(std::vector<T>& vec)
 {
-  for (int i=1;i<vec.size();i++)
+  for (size_t i=1;i<vec.size();i++)
     vec[i-1] = vec[i];
 
   vec.pop_back();
@@ -780,7 +781,7 @@ de265_error decoder_context::decode_some(bool* did_work)
 
     // process suffix SEIs
 
-    for (int i=0;i<imgunit->suffix_SEIs.size();i++) {
+    for (size_t i=0;i<imgunit->suffix_SEIs.size();i++) {
       const sei_message& sei = imgunit->suffix_SEIs[i];
 
       err = process_sei(&sei, imgunit->img);
@@ -1093,7 +1094,7 @@ de265_error decoder_context::decode_slice_unit_WPP(image_unit* imgunit,
 
   img->wait_for_completion();
 
-  for (int i=0;i<imgunit->tasks.size();i++)
+  for (size_t i=0;i<imgunit->tasks.size();i++)
     delete imgunit->tasks[i];
   imgunit->tasks.clear();
 
@@ -1183,7 +1184,7 @@ de265_error decoder_context::decode_slice_unit_tiles(image_unit* imgunit,
 
   img->wait_for_completion();
 
-  for (int i=0;i<imgunit->tasks.size();i++)
+  for (size_t i=0;i<imgunit->tasks.size();i++)
     delete imgunit->tasks[i];
   imgunit->tasks.clear();
 
@@ -1474,7 +1475,7 @@ de265_error decoder_context::process_reference_picture_set(slice_segment_header*
        lower POCs seems to be compliant to the reference decoder.
     */
 
-    for (int i=0;i<dpb.size();i++) {
+    for (size_t i=0;i<dpb.size();i++) {
       de265_image* img = dpb.get_image(i);
 
       if (img->PicState != UnusedForReference &&
@@ -2144,7 +2145,7 @@ bool decoder_context::process_slice_segment_header(slice_segment_header* hdr,
 
 void decoder_context::remove_images_from_dpb(const std::vector<int>& removeImageList)
 {
-  for (int i=0;i<removeImageList.size();i++) {
+  for (size_t i=0;i<removeImageList.size();i++) {
     int idx = dpb.DPB_index_of_picture_with_ID( removeImageList[i] );
     if (idx>=0) {
       //printf("remove ID %d\n", removeImageList[i]);

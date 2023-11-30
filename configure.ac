@@ -2,11 +2,11 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([libde265], [1.0.12], [dirk.farin@gmail.com])
+AC_INIT([libde265], [1.0.14], [dirk.farin@gmail.com])
 AC_CONFIG_SRCDIR([libde265/de265.cc])
 AC_CONFIG_HEADERS([config.h])
 
-NUMERIC_VERSION=0x01001200 # Numeric representation of the version (A.B.C[.D] = 0xAABBCCDD)
+NUMERIC_VERSION=0x01001400 # Numeric representation of the version (A.B.C[.D] = 0xAABBCCDD)
 AC_SUBST(NUMERIC_VERSION)
 
 # From https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html:
@@ -16,7 +16,7 @@ AC_SUBST(NUMERIC_VERSION)
 # If any interfaces have been removed or changed since the last public release, then set age to 0.
 
 LIBDE265_CURRENT=1
-LIBDE265_REVISION=5
+LIBDE265_REVISION=7
 LIBDE265_AGE=1
 
 # ---------------------------------------------------------------------------
@@ -308,8 +308,8 @@ if eval "test x$enable_dec265 = xyes" || eval "test x$enable_sherlock265 = xyes"
 fi
 
 if eval "test x$enable_dec265 = xyes" ; then
-   PKG_CHECK_MODULES([SDL], [sdl],
-                     [AC_DEFINE([HAVE_SDL], [1], [Whether libsdl was found.])
+   PKG_CHECK_MODULES([SDL], [sdl2],
+                     [AC_DEFINE([HAVE_SDL], [1], [Whether libsdl2 was found.])
                       AC_SUBST(SDL_CFLAGS)
                       AC_SUBST(SDL_LIBS)
                       have_sdl="yes"],
@@ -332,7 +332,7 @@ AM_CONDITIONAL([HAVE_SWSCALE], [test "x$have_swscale" = "xyes"])
 AM_CONDITIONAL([HAVE_SDL], [test "x$have_sdl" = "xyes"])
 
 if eval "test $enable_dec265 = yes" && eval "test $have_videogfx != yes" && eval "test $have_sdl != yes" ; then
-  AC_MSG_WARN([Did not find libvideogfx or libsdl, video output of dec265 will be disabled.])
+  AC_MSG_WARN([Did not find libvideogfx or libsdl2, video output of dec265 will be disabled.])
 fi
 
 if eval "test $enable_sherlock265 = yes" && eval "test $have_videogfx != yes" && eval "test $have_swscale != yes" ; then

@@ -57,7 +57,7 @@
 /* Define to 1 if the system has the type `ptrdiff_t'. */
 #undef HAVE_PTRDIFF_T
 
-/* Whether libsdl was found. */
+/* Whether libsdl2 was found. */
 #undef HAVE_SDL
 
 /* Define to 1 if you have the <setjmp.h> header file. */

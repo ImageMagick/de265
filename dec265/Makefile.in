@@ -89,7 +89,13 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-bin_PROGRAMS = dec265$(EXEEXT) hdrcopy$(EXEEXT)
+bin_PROGRAMS = dec265$(EXEEXT)
+
+# hdrcopy_DEPENDENCIES = ../libde265/libde265.la
+# hdrcopy_CXXFLAGS =
+# hdrcopy_LDFLAGS =
+# hdrcopy_LDADD = ../libde265/libde265.la -lstdc++
+# hdrcopy_SOURCES = hdrcopy.cc
 @HAVE_VIDEOGFX_TRUE@am__append_1 = $(VIDEOGFX_CFLAGS)
 @HAVE_VIDEOGFX_TRUE@am__append_2 = $(VIDEOGFX_LIBS)
 @HAVE_SDL_TRUE@am__append_3 = $(SDL_CFLAGS)
@@ -125,11 +131,6 @@ am__v_lt_1 =
 dec265_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(dec265_CXXFLAGS) \
 	$(CXXFLAGS) $(dec265_LDFLAGS) $(LDFLAGS) -o $@
-am_hdrcopy_OBJECTS = hdrcopy-hdrcopy.$(OBJEXT)
-hdrcopy_OBJECTS = $(am_hdrcopy_OBJECTS)
-hdrcopy_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(hdrcopy_CXXFLAGS) \
-	$(CXXFLAGS) $(hdrcopy_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -146,7 +147,7 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/dec265-dec265.Po \
-	./$(DEPDIR)/dec265-sdl.Po ./$(DEPDIR)/hdrcopy-hdrcopy.Po
+	./$(DEPDIR)/dec265-sdl.Po
 am__mv = mv -f
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
@@ -184,8 +185,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(dec265_SOURCES) $(hdrcopy_SOURCES)
-DIST_SOURCES = $(am__dec265_SOURCES_DIST) $(hdrcopy_SOURCES)
+SOURCES = $(dec265_SOURCES)
+DIST_SOURCES = $(am__dec265_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -365,11 +366,6 @@ dec265_CXXFLAGS = $(am__append_1) $(am__append_3)
 dec265_LDFLAGS = $(am__append_2) $(am__append_4) $(am__append_6)
 dec265_LDADD = ../libde265/libde265.la -lstdc++
 dec265_SOURCES = dec265.cc $(am__append_5)
-hdrcopy_DEPENDENCIES = ../libde265/libde265.la
-hdrcopy_CXXFLAGS = 
-hdrcopy_LDFLAGS = 
-hdrcopy_LDADD = ../libde265/libde265.la -lstdc++
-hdrcopy_SOURCES = hdrcopy.cc
 EXTRA_DIST = Makefile.vc7 \
   CMakeLists.txt \
   ../extra/getopt.c \
@@ -463,10 +459,6 @@ dec265$(EXEEXT): $(dec265_OBJECTS) $(dec265_DEPENDENCIES) $(EXTRA_dec265_DEPENDE
 	@rm -f dec265$(EXEEXT)
 	$(AM_V_CXXLD)$(dec265_LINK) $(dec265_OBJECTS) $(dec265_LDADD) $(LIBS)
 
-hdrcopy$(EXEEXT): $(hdrcopy_OBJECTS) $(hdrcopy_DEPENDENCIES) $(EXTRA_hdrcopy_DEPENDENCIES) 
-	@rm -f hdrcopy$(EXEEXT)
-	$(AM_V_CXXLD)$(hdrcopy_LINK) $(hdrcopy_OBJECTS) $(hdrcopy_LDADD) $(LIBS)
-
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
@@ -475,7 +467,6 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dec265-dec265.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dec265-sdl.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hdrcopy-hdrcopy.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -531,20 +522,6 @@ dec265-sdl.obj: sdl.cc
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='sdl.cc' object='dec265-sdl.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(dec265_CXXFLAGS) $(CXXFLAGS) -c -o dec265-sdl.obj `if test -f 'sdl.cc'; then $(CYGPATH_W) 'sdl.cc'; else $(CYGPATH_W) '$(srcdir)/sdl.cc'; fi`
-
-hdrcopy-hdrcopy.o: hdrcopy.cc
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(hdrcopy_CXXFLAGS) $(CXXFLAGS) -MT hdrcopy-hdrcopy.o -MD -MP -MF $(DEPDIR)/hdrcopy-hdrcopy.Tpo -c -o hdrcopy-hdrcopy.o `test -f 'hdrcopy.cc' || echo '$(srcdir)/'`hdrcopy.cc
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/hdrcopy-hdrcopy.Tpo $(DEPDIR)/hdrcopy-hdrcopy.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='hdrcopy.cc' object='hdrcopy-hdrcopy.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(hdrcopy_CXXFLAGS) $(CXXFLAGS) -c -o hdrcopy-hdrcopy.o `test -f 'hdrcopy.cc' || echo '$(srcdir)/'`hdrcopy.cc
-
-hdrcopy-hdrcopy.obj: hdrcopy.cc
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(hdrcopy_CXXFLAGS) $(CXXFLAGS) -MT hdrcopy-hdrcopy.obj -MD -MP -MF $(DEPDIR)/hdrcopy-hdrcopy.Tpo -c -o hdrcopy-hdrcopy.obj `if test -f 'hdrcopy.cc'; then $(CYGPATH_W) 'hdrcopy.cc'; else $(CYGPATH_W) '$(srcdir)/hdrcopy.cc'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/hdrcopy-hdrcopy.Tpo $(DEPDIR)/hdrcopy-hdrcopy.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='hdrcopy.cc' object='hdrcopy-hdrcopy.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(hdrcopy_CXXFLAGS) $(CXXFLAGS) -c -o hdrcopy-hdrcopy.obj `if test -f 'hdrcopy.cc'; then $(CYGPATH_W) 'hdrcopy.cc'; else $(CYGPATH_W) '$(srcdir)/hdrcopy.cc'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -680,7 +657,6 @@ clean-am: clean-binPROGRAMS clean-generic clean-libtool mostlyclean-am
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/dec265-dec265.Po
 	-rm -f ./$(DEPDIR)/dec265-sdl.Po
-	-rm -f ./$(DEPDIR)/hdrcopy-hdrcopy.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -728,7 +704,6 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/dec265-dec265.Po
 	-rm -f ./$(DEPDIR)/dec265-sdl.Po
-	-rm -f ./$(DEPDIR)/hdrcopy-hdrcopy.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

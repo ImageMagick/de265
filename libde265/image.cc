@@ -330,6 +330,14 @@ de265_error de265_image::alloc_image(int w,int h, enum de265_chroma c,
   int top    = sps ? sps->conf_win_top_offset : 0;
   int bottom = sps ? sps->conf_win_bottom_offset : 0;
 
+  if ((left+right)*WinUnitX >= width) {
+    return DE265_ERROR_CODED_PARAMETER_OUT_OF_RANGE;
+  }
+
+  if ((top+bottom)*WinUnitX >= height) {
+    return DE265_ERROR_CODED_PARAMETER_OUT_OF_RANGE;
+  }
+
   width_confwin = width - (left+right)*WinUnitX;
   height_confwin= height- (top+bottom)*WinUnitY;
   chroma_width_confwin = chroma_width -left-right;
@@ -511,7 +519,7 @@ void de265_image::release()
 
   // free slices
 
-  for (int i=0;i<slices.size();i++) {
+  for (size_t i=0;i<slices.size();i++) {
     delete slices[i];
   }
   slices.clear();
