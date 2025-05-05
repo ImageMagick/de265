@@ -121,20 +121,60 @@ if(HAVE_X86)
   endif()
 endif()
 
-add_library(de265 ${libde265_sources} ${ENCODER_OBJECTS} ${X86_OBJECTS})
+add_library(de265 ${libde265_sources} ${libde265_public_headers} ${ENCODER_OBJECTS} ${X86_OBJECTS})
 target_link_libraries(de265 PRIVATE Threads::Threads)
 target_include_directories(de265 PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 write_basic_package_version_file(libde265ConfigVersion.cmake COMPATIBILITY ExactVersion)
 
+# --- debug output
+
+set(LOG_LEVELS error info debug trace)
+set(DE265_LOG_LEVEL "error" CACHE STRING "Log level (${LOG_LEVELS})")
+
+set_property(CACHE DE265_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVELS})
+if (NOT DE265_LOG_LEVEL IN_LIST LOG_LEVELS)
+    message(FATAL_ERROR "DE265_LOG_LEVEL has to be one of: ${LOG_LEVELS}")
+endif ()
+
+if (DE265_LOG_LEVEL MATCHES "error")
+    target_compile_definitions(de265 PRIVATE DE265_LOG_ERROR)
+elseif (DE265_LOG_LEVEL MATCHES "info")
+    target_compile_definitions(de265 PRIVATE DE265_LOG_ERROR DE265_LOG_INFO)
+elseif (DE265_LOG_LEVEL MATCHES "debug")
+    target_compile_definitions(de265 PRIVATE DE265_LOG_ERROR DE265_LOG_INFO DE265_LOG_DEBUG)
+elseif (DE265_LOG_LEVEL MATCHES "trace")
+    target_compile_definitions(de265 PRIVATE DE265_LOG_ERROR DE265_LOG_INFO DE265_LOG_DEBUG DE265_LOG_TRACE)
+endif()
+
+
 if (WIN32)
     set_target_properties(de265 PROPERTIES PREFIX "lib")
+endif()
+
+if (BUILD_FRAMEWORK) 
+  set_target_properties(de265 PROPERTIES
+    FRAMEWORK TRUE
+    FRAMEWORK_VERSION "${PROJECT_VERSION}"
+    PRODUCT_BUNDLE_IDENTIFIER "github.com/strukturag/libde265"
+    XCODE_ATTRIBUTE_INSTALL_PATH "@rpath"
+    # OUTPUT_NAME "de265"
+    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
+    XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
+    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
+    PUBLIC_HEADER "${libde265_public_headers}"
+    MACOSX_FRAMEWORK_IDENTIFIER "github.com/strukturag/libde265"
+    MACOSX_FRAMEWORK_BUNDLE_VERSION "${PROJECT_VERSION}"
+    MACOSX_RPATH TRUE)
 endif()
 
 install(TARGETS de265 EXPORT libde265Config
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    FRAMEWORK DESTINATION Library/Frameworks COMPONENT runtime OPTIONAL
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libde265
 )
 
 install(FILES ${libde265_public_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libde265)

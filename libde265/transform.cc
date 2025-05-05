@@ -489,6 +489,11 @@ void scale_coefficients_internal(thread_context* tctx,
 
       const uint8_t* sclist;
       int matrixID = cIdx;
+
+      if (nT==32) {
+        matrixID=0;
+      }
+
       if (!intra) {
         if (nT<32) { matrixID += 3; }
         else { matrixID++; }
@@ -653,7 +658,7 @@ void scale_coefficients(thread_context* tctx,
 
 //#define QUANT_IQUANT_SHIFT    20 // Q(QP%6) * IQ(QP%6) = 2^20
 #define QUANT_SHIFT           14 // Q(4) = 2^14
-//#define SCALE_BITS            15 // Inherited from TMuC, pressumably for fractional bit estimates in RDOQ
+//#define SCALE_BITS            15 // Inherited from TMuC, presumably for fractional bit estimates in RDOQ
 #define MAX_TR_DYNAMIC_RANGE  15 // Maximum transform dynamic range (excluding sign bit)
 
 

@@ -1,8 +1,8 @@
-cmake_minimum_required (VERSION 3.3.2)
+cmake_minimum_required (VERSION 3.5.0)
 
 project (libde265
     LANGUAGES C CXX
-    VERSION 1.0.15
+    VERSION 1.0.16
 )
 
 set(CMAKE_CXX_STANDARD 11)
@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # The version number.
-set (NUMERIC_VERSION 0x01001500)
+set (NUMERIC_VERSION 0x01001600)
 set (PACKAGE_VERSION ${PROJECT_VERSION})
 
 include (${CMAKE_ROOT}/Modules/CheckCCompilerFlag.cmake)
@@ -55,6 +55,10 @@ endif()
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 if(NOT BUILD_SHARED_LIBS)
   add_definitions(-DLIBDE265_STATIC_BUILD)
+endif()
+
+if(APPLE)
+  option(BUILD_FRAMEWORK "Build as Apple Frameworks" OFF)
 endif()
 
 include_directories ("${PROJECT_SOURCE_DIR}")

@@ -91,6 +91,10 @@ host_triplet = @host@
 target_triplet = @target@
 @ENABLE_DEC265_TRUE@am__append_1 = dec265
 @ENABLE_ENCODER_TRUE@am__append_2 = enc265
+
+# Remove acceleration-speed test program, because it needs many internal functions (that have to be dllexported).
+# On the other hand, that tool was only used for development.
+# SUBDIRS+=acceleration-speed
 @ENABLE_SHERLOCK265_TRUE@am__append_3 = sherlock265
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -193,8 +197,7 @@ am__define_uniq_tagged_files = \
   unique=`for i in $$list; do \
     if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
   done | $(am__uniquify_input)`
-DIST_SUBDIRS = libde265 dec265 enc265 tools acceleration-speed \
-	sherlock265
+DIST_SUBDIRS = libde265 dec265 enc265 tools sherlock265
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(srcdir)/libde265.pc.in AUTHORS COPYING ChangeLog INSTALL \
 	NEWS README compile config.guess config.sub depcomp install-sh \
@@ -292,6 +295,7 @@ LIBDE265_CURRENT = @LIBDE265_CURRENT@
 LIBDE265_REVISION = @LIBDE265_REVISION@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+LIBS_PRIVATE = @LIBS_PRIVATE@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
@@ -393,7 +397,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = libde265 $(am__append_1) $(am__append_2) tools \
-	acceleration-speed $(am__append_3)
+	$(am__append_3)
 ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = \
   autogen.sh \
