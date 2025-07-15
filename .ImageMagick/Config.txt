@@ -1,4 +1,4 @@
-[STATIC]
+[STATIC_LIBRARY]
 
 [LICENSE]
 COPYING
@@ -9,12 +9,18 @@ HAVE_STDINT_H
 [DEFINES]
 LIBDE265_STATIC_BUILD
 
-[DIRECTORIES]
-extra
-libde265
-libde265\encoder
-libde265\encoder\algo
-
 [INCLUDES]
 .
 libde265
+
+[INCLUDE_ARTIFACTS]
+libde265\de265.h -> libde265
+libde265\de265-version.h -> libde265
+
+[EXCLUDES]
+dec265\
+enc265\
+libde265\arm\
+libde265\x86\
+sherlock265\
+tools\
