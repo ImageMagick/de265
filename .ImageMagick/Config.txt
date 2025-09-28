@@ -1,5 +1,23 @@
 [STATIC_LIBRARY]
 
+[VERSION]
+1.0.16
+
+[RELEASE_DATE]
+2025-05-04
+
+[PRODUCT_NAME]
+libde265
+
+[COMPANY_NAME]
+Struktur AG.
+
+[URL]
+https://github.com/strukturag/libde265
+
+[COPYRIGHT]
+Copyright (c) 2013 Struktur AG.
+
 [LICENSE_FILE]
 COPYING
 
