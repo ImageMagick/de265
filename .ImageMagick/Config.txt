@@ -40,8 +40,7 @@ libde265\de265-version.h -> libde265
 
 [EXCLUDES]
 dec265\
-enc265\
+fuzzing\
 libde265\arm\
 libde265\x86\
 sherlock265\
-tools\
