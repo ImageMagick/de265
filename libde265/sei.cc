@@ -34,9 +34,9 @@ static de265_error read_sei_decoded_picture_hash(bitreader* reader, sei_message*
 {
   sei_decoded_picture_hash* seihash = &sei->data.decoded_picture_hash;
 
-  seihash->hash_type = (enum sei_decoded_picture_hash_type)get_bits(reader,8);
+  seihash->hash_type = (enum sei_decoded_picture_hash_type)reader->get_bits(8);
 
-  if (sps==NULL) {
+  if (sps==nullptr) {
     return DE265_WARNING_SPS_MISSING_CANNOT_DECODE_SEI;
   }
 
@@ -44,15 +44,15 @@ static de265_error read_sei_decoded_picture_hash(bitreader* reader, sei_message*
   for (int i=0;i<nHashes;i++) {
     switch (seihash->hash_type) {
     case sei_decoded_picture_hash_type_MD5:
-      for (int b=0;b<16;b++) { seihash->md5[i][b] = get_bits(reader,8); }
+      for (int b=0;b<16;b++) { seihash->md5[i][b] = reader->get_bits(8); }
       break;
 
     case sei_decoded_picture_hash_type_CRC:
-      seihash->crc[i] = get_bits(reader,16);
+      seihash->crc[i] = reader->get_bits(16);
       break;
 
     case sei_decoded_picture_hash_type_checksum:
-      seihash->checksum[i]  = get_bits(reader,32);
+      seihash->checksum[i]  = reader->get_bits(32);
       break;
     }
   }
@@ -121,7 +121,7 @@ raw_hash_data::raw_hash_data(int w, int stride)
 {
   mWidth=w;
   mStride=stride;
-  mMem = NULL;
+  mMem = nullptr;
 }
 
 raw_hash_data::~raw_hash_data()
@@ -139,7 +139,7 @@ raw_hash_data::data_chunk raw_hash_data::prepare_8bit(const uint8_t* data,int y)
 
 raw_hash_data::data_chunk raw_hash_data::prepare_16bit(const uint8_t* data,int y)
 {
-  if (mMem == NULL) {
+  if (mMem == nullptr) {
     mMem = new uint8_t[2*mWidth];
   }
 
@@ -157,7 +157,7 @@ raw_hash_data::data_chunk raw_hash_data::prepare_16bit(const uint8_t* data,int y
 }
 
 
-static uint32_t compute_checksum_8bit(uint8_t* data,int w,int h,int stride, int bit_depth)
+static uint32_t compute_checksum(uint8_t* data,int w,int h,int stride, int bit_depth)
 {
   uint32_t sum = 0;
 
@@ -169,17 +169,20 @@ static uint32_t compute_checksum_8bit(uint8_t* data,int w,int h,int stride, int 
       }
   }
   else {
+    auto* data16 = reinterpret_cast<uint16_t*>(data);
+    int stride16 = stride / 2;
     for (int y=0; y<h; y++)
       for(int x=0; x<w; x++) {
         uint8_t xorMask = ( x & 0xFF ) ^ ( y & 0xFF ) ^ ( x  >>  8 ) ^ ( y  >>  8 );
-        sum += (data[y*stride + x] & 0xFF) ^ xorMask;
-        sum += (data[y*stride + x] >> 8)   ^ xorMask;
+        sum += (data16[y*stride16 + x] & 0xFF) ^ xorMask;
+        sum += (data16[y*stride16 + x] >> 8)   ^ xorMask;
       }
   }
 
   return sum & 0xFFFFFFFF;
 }
 
+/*
 static inline uint16_t crc_process_byte(uint16_t crc, uint8_t byte)
 {
   for (int bit=0;bit<8;bit++) {
@@ -194,7 +197,6 @@ static inline uint16_t crc_process_byte(uint16_t crc, uint8_t byte)
   return crc;
 }
 
-/*
 static uint16_t compute_CRC_8bit_old(const uint8_t* data,int w,int h,int stride)
 {
   uint16_t crc = 0xFFFF;
@@ -339,7 +341,7 @@ static de265_error process_sei_decoded_picture_hash(const sei_message* sei, de26
 
     case sei_decoded_picture_hash_type_checksum:
       {
-        uint32_t chksum = compute_checksum_8bit(data,w,h,stride, img->get_bit_depth(i));
+        uint32_t chksum = compute_checksum(data,w,h,stride, img->get_bit_depth(i));
 
         if (chksum != seihash->checksum[i]) {
 /*
@@ -360,27 +362,39 @@ static de265_error process_sei_decoded_picture_hash(const sei_message* sei, de26
 }
 
 
+#define MAX_SEI_SIZE UINT32_C(0xFFFFFFFF)
+
 de265_error read_sei(bitreader* reader, sei_message* sei, bool suffix, const seq_parameter_set* sps)
 {
-  int payload_type = 0;
+  uint16_t payload_type = 0;
   for (;;)
     {
-      int byte = get_bits(reader,8);
+      uint8_t byte = static_cast<uint8_t>(reader->get_bits(8));
+
+      if (std::numeric_limits<uint16_t>::max() - byte < payload_type) {
+        return DE265_ERROR_CANNOT_PROCESS_SEI;
+      }
+
       payload_type += byte;
       if (byte != 0xFF) { break; }
     }
 
   //printf("SEI payload: %d\n",payload_type);
 
-  int payload_size = 0;
+  uint32_t payload_size = 0;
   for (;;)
     {
-      int byte = get_bits(reader,8);
+      uint32_t byte = reader->get_bits(8);
+
+      if (MAX_SEI_SIZE - byte < payload_type) {
+        return DE265_ERROR_CANNOT_PROCESS_SEI;
+      }
+
       payload_size += byte;
       if (byte != 0xFF) { break; }
     }
 
-  sei->payload_type = (enum sei_payload_type)payload_type;
+  sei->payload_type = payload_type;
   sei->payload_size = payload_size;
 
 
@@ -441,7 +455,7 @@ de265_error process_sei(const sei_message* sei, de265_image* img)
 }
 
 
-const char* sei_type_name(enum sei_payload_type type)
+const char* sei_type_name(uint16_t type)
 {
   switch (type) {
   case sei_payload_type_buffering_period:

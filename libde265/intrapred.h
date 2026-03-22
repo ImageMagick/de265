@@ -168,7 +168,7 @@ void print_border(pixel_t* data, uint8_t* available, int nT)
       logtrace(LogIntraPred," ");
     }
 
-    if (available==NULL || available[i]) {
+    if (available==nullptr || available[i]) {
       logtrace(LogIntraPred,"%02x",data[i]);
     }
     else {
@@ -254,7 +254,7 @@ void intra_prediction_sample_filtering(const seq_parameter_set& sps,
 
 
   logtrace(LogIntraPred,"post filtering: ");
-  print_border(p,NULL,nT);
+  print_border(p,nullptr,nT);
   logtrace(LogIntraPred,"\n");
 }
 
@@ -497,11 +497,11 @@ void intra_border_computer<pixel_t>::preproc()
          availableLeft ? xLeftCtb+yCurrCtb*picWidthInCtbs : 9999,
          availableTop  ? xCurrCtb+yTopCtb*picWidthInCtbs  : 9999);
   */
-  int currCTBTileID = pps->TileIdRS[xCurrCtb+yCurrCtb*picWidthInCtbs];
-  int leftCTBTileID = availableLeft ? pps->TileIdRS[xLeftCtb+yCurrCtb*picWidthInCtbs] : -1;
-  int topCTBTileID  = availableTop ? pps->TileIdRS[xCurrCtb+yTopCtb*picWidthInCtbs] : -1;
-  int topleftCTBTileID = availableTopLeft ? pps->TileIdRS[xLeftCtb+yTopCtb*picWidthInCtbs] : -1;
-  int toprightCTBTileID= availableTopRight? pps->TileIdRS[xRightCtb+yTopCtb*picWidthInCtbs] : -1;
+  uint32_t currCTBTileID = pps->TileIdRS[xCurrCtb+yCurrCtb*picWidthInCtbs];
+  uint32_t leftCTBTileID = availableLeft ? pps->TileIdRS[xLeftCtb+yCurrCtb*picWidthInCtbs] : UINT32_MAX;
+  uint32_t topCTBTileID  = availableTop ? pps->TileIdRS[xCurrCtb+yTopCtb*picWidthInCtbs] : UINT32_MAX;
+  uint32_t topleftCTBTileID = availableTopLeft ? pps->TileIdRS[xLeftCtb+yTopCtb*picWidthInCtbs] : UINT32_MAX;
+  uint32_t toprightCTBTileID= availableTopRight? pps->TileIdRS[xRightCtb+yTopCtb*picWidthInCtbs] : UINT32_MAX;
 
   if (leftCTBSlice != currCTBSlice  || leftCTBTileID != currCTBTileID ) availableLeft    = false;
   if (topCTBSlice  != currCTBSlice  || topCTBTileID  != currCTBTileID ) availableTop     = false;
@@ -666,11 +666,11 @@ void intra_border_computer<pixel_t>::reference_sample_substitution()
   }
 
   logtrace(LogIntraPred,"availableN: ");
-  print_border(available,NULL,nT);
+  print_border(available,nullptr,nT);
   logtrace(LogIntraPred,"\n");
 
   logtrace(LogIntraPred,"output:     ");
-  print_border(out_border,NULL,nT);
+  print_border(out_border,nullptr,nT);
   logtrace(LogIntraPred,"\n");
 }
 

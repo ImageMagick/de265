@@ -54,8 +54,14 @@ Building
 
 [![Build Status](https://github.com/strukturag/libde265/workflows/build/badge.svg)](https://github.com/strukturag/libde265/actions) [![Build Status](https://ci.appveyor.com/api/projects/status/github/strukturag/libde265?svg=true)](https://ci.appveyor.com/project/strukturag/libde265)
 
-If you got libde265 from the git repository, you will first need to run
-the included `autogen.sh` script to generate the `configure` script.
+libde265 uses the CMake build system.
+To compile libde265, run
+````
+mkdir build
+cd build
+cmake ..
+make
+````
 
 libde265 has no dependencies on other libraries, but both optional example programs
 have dependencies on:
@@ -75,20 +81,6 @@ or
   http://github.com/farindk/libvideogfx
 
 
-You can disable building of the example programs by running `./configure` with
-<pre>
-  --disable-dec265        Do not build the dec265 decoder program.
-  --disable-sherlock265   Do not build the sherlock265 visual inspection program.
-</pre>
-
-Additional logging information can be turned on and off using these `./configure` flags:
-<pre>
-  --enable-log-error      turn on logging at error level (default=yes)
-  --enable-log-info       turn on logging at info level (default=no)
-  --enable-log-trace      turn on logging at trace level (default=no)
-</pre>
-
-
 Build using cmake
 =================
 
@@ -102,8 +94,16 @@ cmake ..
 make
 ```
 
-See the [cmake documentation](http://www.cmake.org) for further information on
-using cmake on other platforms.
+You can disable building of the example programs by running `cmake` with
+<pre>
+  -DENABLE_DECODER=off     Do not build the dec265 decoder program.
+  -DENABLE_SHERLOCK265=off Do not build the sherlock265 visual inspection program.
+</pre>
+
+Additional logging information can be turned on and off using these `./configure` flags:
+<pre>
+  -DDE265_LOG_LEVEL={error;info;debug;trace}
+</pre>
 
 
 Building using vcpkg
@@ -132,6 +132,8 @@ Software using libde265
 =======================
 
 Libde265 has been integrated into these applications:
+
+- libheif [source](https://github.com/strukturag/libheif)
 
 - gstreamer plugin, [source](https://github.com/strukturag/gstreamer-libde265), [binary packages](https://launchpad.net/~strukturag/+archive/libde265).
 
@@ -163,5 +165,5 @@ See `COPYING` for more details.
 The short video clip in the 'testdata' directory is from the movie 'Girl Shy', which is in the public domain.
 
 Copyright (c) 2013-2014 Struktur AG<br>
-Copyright (c) 2013-2024 Dirk Farin<br>
+Copyright (c) 2013-2026 Dirk Farin<br>
 Contact: Dirk Farin <dirk.farin@gmail.com>

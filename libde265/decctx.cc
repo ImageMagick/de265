@@ -24,6 +24,7 @@
 #include "sei.h"
 #include "deblock.h"
 
+#include <algorithm>
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -56,75 +57,7 @@ extern void thread_decode_slice_segment(void* d);
 
 thread_context::thread_context()
 {
-  /*
-  CtbAddrInRS = 0;
-  CtbAddrInTS = 0;
-
-  CtbX = 0;
-  CtbY = 0;
-  */
-
-  /*
-  refIdx[0] = refIdx[1] = 0;
-  mvd[0][0] = mvd[0][1] = mvd[1][0] = mvd[1][1] = 0;
-  merge_flag = 0;
-  merge_idx = 0;
-  mvp_lX_flag[0] = mvp_lX_flag[1] = 0;
-  inter_pred_idc = 0;
-  */
-
-  /*
-  enum IntraPredMode IntraPredModeC; // chroma intra-prediction mode for current CB
-  */
-
-  /*
-  cu_transquant_bypass_flag = false;
-  memset(transform_skip_flag,0, 3*sizeof(uint8_t));
-  */
-
-
-  //memset(coeffList,0,sizeof(int16_t)*3*32*32);
-  //memset(coeffPos,0,sizeof(int16_t)*3*32*32);
-  //memset(nCoeff,0,sizeof(int16_t)*3);
-
-
-
-  IsCuQpDeltaCoded = false;
-  CuQpDelta = 0;
-
-  IsCuChromaQpOffsetCoded = false;
-  CuQpOffsetCb = 0;
-  CuQpOffsetCr = 0;
-
-  /*
-  currentQPY = 0;
-  currentQG_x = 0;
-  currentQG_y = 0;
-  lastQPYinPreviousQG = 0;
-  */
-
-  /*
-  qPYPrime = 0;
-  qPCbPrime = 0;
-  qPCrPrime = 0;
-  */
-
-  /*
-  memset(&cabac_decoder, 0, sizeof(CABAC_decoder));
-  memset(&ctx_model, 0, sizeof(ctx_model));
-  */
-
-  decctx = NULL;
-  img = NULL;
-  shdr = NULL;
-
-  imgunit = NULL;
-  sliceunit = NULL;
-
-
-  //memset(this,0,sizeof(thread_context));
-
-  // There is a interesting issue here. When aligning _coeffBuf to 16 bytes offset with
+  // There is an interesting issue here. When aligning _coeffBuf to 16 bytes offset with
   // __attribute__((align(16))), the following statement is optimized away since the
   // compiler assumes that the pointer would be 16-byte aligned. However, this is not the
   // case when the structure has been dynamically allocated. In this case, the base can
@@ -132,7 +65,7 @@ thread_context::thread_context()
   int offset = ((uintptr_t)_coeffBuf) & 0xf;
 
   if (offset == 0) {
-    coeffBuf = _coeffBuf;  // correctly aligned already
+    coeffBuf = _coeffBuf;
   }
   else {
     coeffBuf = (int16_t *) (((uint8_t *)_coeffBuf) + (16-offset));
@@ -143,14 +76,14 @@ thread_context::thread_context()
 
 
 slice_unit::slice_unit(decoder_context* decctx)
-  : nal(NULL),
-    shdr(NULL),
-    imgunit(NULL),
+  : nal(nullptr),
+    shdr(nullptr),
+    imgunit(nullptr),
     flush_reorder_buffer(false),
     nThreads(0),
     first_decoded_CTB_RS(-1),
     last_decoded_CTB_RS(-1),
-    thread_contexts(NULL),
+    thread_contexts(nullptr),
     ctx(decctx)
 {
   state = Unprocessed;
@@ -169,19 +102,14 @@ slice_unit::~slice_unit()
 
 void slice_unit::allocate_thread_contexts(int n)
 {
-  assert(thread_contexts==NULL);
+  assert(thread_contexts==nullptr);
 
   thread_contexts = new thread_context[n];
   nThreadContexts = n;
 }
 
 
-image_unit::image_unit()
-{
-  img=NULL;
-  role=Invalid;
-  state=Unprocessed;
-}
+image_unit::image_unit() = default;
 
 
 image_unit::~image_unit()
@@ -204,116 +132,8 @@ base_context::base_context()
 
 decoder_context::decoder_context()
 {
-  //memset(ctx, 0, sizeof(decoder_context));
-
-  // --- parameters ---
-
-  param_sei_check_hash = false;
-  param_conceal_stream_errors = true;
-  param_suppress_faulty_pictures = false;
-
-  param_disable_deblocking = false;
-  param_disable_sao = false;
-  //param_disable_mc_residual_idct = false;
-  //param_disable_intra_residual_idct = false;
-
-  // --- processing ---
-
-  param_sps_headers_fd = -1;
-  param_vps_headers_fd = -1;
-  param_pps_headers_fd = -1;
-  param_slice_headers_fd = -1;
-
   param_image_allocation_functions = de265_image::default_image_allocation;
-  param_image_allocation_userdata  = NULL;
-
-  /*
-  memset(&vps, 0, sizeof(video_parameter_set)*DE265_MAX_VPS_SETS);
-  memset(&sps, 0, sizeof(seq_parameter_set)  *DE265_MAX_SPS_SETS);
-  memset(&pps, 0, sizeof(pic_parameter_set)  *DE265_MAX_PPS_SETS);
-  memset(&slice,0,sizeof(slice_segment_header)*DE265_MAX_SLICES);
-  */
-
-  current_vps = NULL;
-  current_sps = NULL;
-  current_pps = NULL;
-
-  //memset(&thread_pool,0,sizeof(struct thread_pool));
-  num_worker_threads = 0;
-
-
-  // frame-rate
-
-  limit_HighestTid = 6;   // decode all temporal layers (up to layer 6)
-  framerate_ratio = 100;  // decode all 100%
-
-  goal_HighestTid = 6;
-  current_HighestTid = 6;
-  layer_framerate_ratio = 100;
-
   compute_framedrop_table();
-
-
-  //
-
-  current_image_poc_lsb = 0;
-  first_decoded_picture = 0;
-  NoRaslOutputFlag = 0;
-  HandleCraAsBlaFlag = 0;
-  FirstAfterEndOfSequenceNAL = 0;
-  PicOrderCntMsb = 0;
-  prevPicOrderCntLsb = 0;
-  prevPicOrderCntMsb = 0;
-  img = NULL;
-  previous_slice_header = nullptr;
-
-  /*
-  int PocLsbLt[MAX_NUM_REF_PICS];
-  int UsedByCurrPicLt[MAX_NUM_REF_PICS];
-  int DeltaPocMsbCycleLt[MAX_NUM_REF_PICS];
-  int CurrDeltaPocMsbPresentFlag[MAX_NUM_REF_PICS];
-  int FollDeltaPocMsbPresentFlag[MAX_NUM_REF_PICS];
-
-  int NumPocStCurrBefore;
-  int NumPocStCurrAfter;
-  int NumPocStFoll;
-  int NumPocLtCurr;
-  int NumPocLtFoll;
-
-  // These lists contain absolute POC values.
-  int PocStCurrBefore[MAX_NUM_REF_PICS]; // used for reference in current picture, smaller POC
-  int PocStCurrAfter[MAX_NUM_REF_PICS];  // used for reference in current picture, larger POC
-  int PocStFoll[MAX_NUM_REF_PICS]; // not used for reference in current picture, but in future picture
-  int PocLtCurr[MAX_NUM_REF_PICS]; // used in current picture
-  int PocLtFoll[MAX_NUM_REF_PICS]; // used in some future picture
-
-  // These lists contain indices into the DPB.
-  int RefPicSetStCurrBefore[DE265_DPB_SIZE];
-  int RefPicSetStCurrAfter[DE265_DPB_SIZE];
-  int RefPicSetStFoll[DE265_DPB_SIZE];
-  int RefPicSetLtCurr[DE265_DPB_SIZE];
-  int RefPicSetLtFoll[DE265_DPB_SIZE];
-
-
-  uint8_t nal_unit_type;
-
-  char IdrPicFlag;
-  char RapPicFlag;
-  */
-
-
-
-  // --- internal data ---
-
-  first_decoded_picture = true;
-  //ctx->FirstAfterEndOfSequenceNAL = true;
-  //ctx->last_RAP_picture_NAL_type = NAL_UNIT_UNDEFINED;
-
-  //de265_init_image(&ctx->coeff);
-
-  // --- decoded picture buffer ---
-
-  current_image_poc_lsb = -1; // any invalid number
 }
 
 
@@ -337,14 +157,14 @@ void decoder_context::set_image_allocation_functions(de265_image_allocation* all
     assert(false); // actually, it makes no sense to reset the allocation functions
 
     param_image_allocation_functions = de265_image::default_image_allocation;
-    param_image_allocation_userdata  = NULL;
+    param_image_allocation_userdata  = nullptr;
   }
 }
 
 
 de265_error decoder_context::start_thread_pool(int nThreads)
 {
-  ::start_thread_pool(&thread_pool_, nThreads);
+  thread_pool_.start(nThreads);
 
   num_worker_threads = nThreads;
 
@@ -356,7 +176,7 @@ void decoder_context::stop_thread_pool()
 {
   if (get_num_worker_threads()>0) {
     //flush_thread_pool(&ctx->thread_pool);
-    ::stop_thread_pool(&thread_pool_);
+    thread_pool_.stop();
   }
 }
 
@@ -365,37 +185,21 @@ void decoder_context::reset()
 {
   if (num_worker_threads>0) {
     //flush_thread_pool(&ctx->thread_pool);
-    ::stop_thread_pool(&thread_pool_);
+    thread_pool_.stop();
   }
 
   // --------------------------------------------------
 
-#if 0
-  ctx->end_of_stream = false;
-  ctx->pending_input_NAL = NULL;
-  ctx->current_vps = NULL;
-  ctx->current_sps = NULL;
-  ctx->current_pps = NULL;
-  ctx->num_worker_threads = 0;
-  ctx->current_image_poc_lsb = 0;
-  ctx->first_decoded_picture = 0;
-  ctx->NoRaslOutputFlag = 0;
-  ctx->HandleCraAsBlaFlag = 0;
-  ctx->FirstAfterEndOfSequenceNAL = 0;
-  ctx->PicOrderCntMsb = 0;
-  ctx->prevPicOrderCntLsb = 0;
-  ctx->prevPicOrderCntMsb = 0;
-  ctx->NumPocStCurrBefore=0;
-  ctx->NumPocStCurrAfter=0;
-  ctx->NumPocStFoll=0;
-  ctx->NumPocLtCurr=0;
-  ctx->NumPocLtFoll=0;
-  ctx->nal_unit_type=0;
-  ctx->IdrPicFlag=0;
-  ctx->RapPicFlag=0;
-#endif
+  NumPocStCurrBefore = 0;
+  NumPocStCurrAfter = 0;
+  NumPocStFoll = 0;
+  NumPocLtCurr = 0;
+  NumPocLtFoll = 0;
+  nal_unit_type = 0;
+  IdrPicFlag = 0;
+  RapPicFlag = 0;
 
-  img = NULL;
+  img = nullptr;
 
 
   // TODO: remove all pending image_units
@@ -409,7 +213,7 @@ void decoder_context::reset()
 
   // --- remove all pictures from output queue ---
 
-  // there was a bug the peek_next_image did not return NULL on empty output queues.
+  // there was a bug the peek_next_image did not return nullptr on empty output queues.
   // This was (indirectly) fixed by recreating the DPB buffer, but it should actually
   // be sufficient to clear it like this.
   // The error showed while scrubbing the ToS video in VLC.
@@ -505,7 +309,7 @@ void decoder_context::add_task_decode_CTB_row(thread_context* tctx,
   task->debug_startCtbRow = ctbRow;
   tctx->task = task;
 
-  add_task(&thread_pool_, task);
+  thread_pool_.add_task(task);
 
   tctx->imgunit->tasks.push_back(task);
 }
@@ -521,7 +325,7 @@ void decoder_context::add_task_decode_slice_segment(thread_context* tctx, bool f
   task->debug_startCtbY = ctby;
   tctx->task = task;
 
-  add_task(&thread_pool_, task);
+  thread_pool_.add_task(task);
 
   tctx->imgunit->tasks.push_back(task);
 }
@@ -649,25 +453,32 @@ de265_error decoder_context::read_slice_NAL(bitreader& reader, NAL_unit* nal, na
 
   if (process_slice_segment_header(shdr, &err, nal->pts, &nal_hdr, nal->user_data) == false)
     {
-      if (img!=NULL) img->integrity = INTEGRITY_NOT_DECODED;
+      if (img!=nullptr) img->integrity = INTEGRITY_NOT_DECODED;
       nal_parser.free_NAL_unit(nal);
       delete shdr;
       return err;
     }
 
-  this->img->add_slice_segment_header(shdr);
-
-  skip_bits(&reader,1); // TODO: why?
-  prepare_for_CABAC(&reader);
+  reader.skip_bits(1); // TODO: why?
+  reader.prepare_for_CABAC();
 
 
   // modify entry_point_offsets
 
-  int headerLength = reader.data - nal->data();
+  uint32_t headerLength = reader.data - nal->data();
   for (int i=0;i<shdr->num_entry_point_offsets;i++) {
-    shdr->entry_point_offset[i] -= nal->num_skipped_bytes_before(shdr->entry_point_offset[i],
-                                                                 headerLength);
+    uint32_t skipped = nal->num_skipped_bytes_before(shdr->entry_point_offset[i],
+                                                     headerLength);
+    if (skipped > shdr->entry_point_offset[i]) {
+      add_warning(DE265_WARNING_SLICEHEADER_INVALID, false);
+      nal_parser.free_NAL_unit(nal);
+      delete shdr;
+      return DE265_ERROR_CODED_PARAMETER_OUT_OF_RANGE;
+    }
+    shdr->entry_point_offset[i] -= skipped;
   }
+
+  this->img->add_slice_segment_header(shdr);
 
 
 
@@ -730,7 +541,7 @@ de265_error decoder_context::decode_some(bool* did_work)
     image_unit* imgunit = image_units[0];
     slice_unit* sliceunit = imgunit->get_next_unprocessed_slice_segment();
 
-    if (sliceunit != NULL) {
+    if (sliceunit != nullptr) {
 
       //pop_front(imgunit->slice_units);
 
@@ -825,7 +636,7 @@ de265_error decoder_context::decode_slice_unit_sequential(image_unit* imgunit,
   }
 
 
-  struct thread_context tctx;
+  thread_context tctx;
 
   tctx.shdr = sliceunit->shdr;
   tctx.img  = imgunit->img;
@@ -833,7 +644,7 @@ de265_error decoder_context::decode_slice_unit_sequential(image_unit* imgunit,
   tctx.imgunit = imgunit;
   tctx.sliceunit= sliceunit;
   tctx.CtbAddrInTS = imgunit->img->get_pps().CtbAddrRStoTS[tctx.shdr->slice_segment_address];
-  tctx.task = NULL;
+  tctx.task = nullptr;
 
   init_thread_context(&tctx);
 
@@ -841,9 +652,8 @@ de265_error decoder_context::decode_slice_unit_sequential(image_unit* imgunit,
     return DE265_ERROR_PREMATURE_END_OF_SLICE;
   }
 
-  init_CABAC_decoder(&tctx.cabac_decoder,
-                     sliceunit->reader.data,
-                     sliceunit->reader.bytes_remaining);
+  tctx.cabac_decoder.init(sliceunit->reader.data,
+                         sliceunit->reader.bytes_remaining);
 
   // alloc CABAC-model array if entropy_coding_sync is enabled
 
@@ -879,7 +689,7 @@ void decoder_context::mark_whole_slice_as_processed(image_unit* imgunit,
            nextSegment->shdr->slice_segment_address);
     */
 
-    for (int ctb=sliceunit->shdr->slice_segment_address;
+    for (uint32_t ctb=sliceunit->shdr->slice_segment_address;
          ctb < nextSegment->shdr->slice_segment_address;
          ctb++)
       {
@@ -1069,9 +879,8 @@ de265_error decoder_context::decode_slice_unit_WPP(image_unit* imgunit,
       break;
     }
 
-    init_CABAC_decoder(&tctx->cabac_decoder,
-                       &sliceunit->reader.data[dataStartIndex],
-                       dataEnd-dataStartIndex);
+    tctx->cabac_decoder.init(&sliceunit->reader.data[dataStartIndex],
+                             dataEnd-dataStartIndex);
 
     // add task
 
@@ -1101,7 +910,7 @@ de265_error decoder_context::decode_slice_unit_WPP(image_unit* imgunit,
     delete imgunit->tasks[i];
   imgunit->tasks.clear();
 
-  return DE265_OK;
+  return err;
 }
 
 de265_error decoder_context::decode_slice_unit_tiles(image_unit* imgunit,
@@ -1171,9 +980,8 @@ de265_error decoder_context::decode_slice_unit_tiles(image_unit* imgunit,
       break;
     }
 
-    init_CABAC_decoder(&tctx->cabac_decoder,
-                       &sliceunit->reader.data[dataStartIndex],
-                       dataEnd-dataStartIndex);
+    tctx->cabac_decoder.init(&sliceunit->reader.data[dataStartIndex],
+                             dataEnd-dataStartIndex);
 
     // add task
 
@@ -1203,11 +1011,14 @@ de265_error decoder_context::decode_NAL(NAL_unit* nal)
 
   de265_error err = DE265_OK;
 
-  bitreader reader;
-  bitreader_init(&reader, nal->data(), nal->size());
+  bitreader reader(nal->data(), nal->size());
 
   nal_header nal_hdr;
-  nal_hdr.read(&reader);
+  err = nal_hdr.read(&reader);
+  if (err != DE265_OK) {
+    nal_parser.free_NAL_unit(nal);
+    return err;
+  }
   ctx->process_nal_hdr(&nal_hdr);
 
   if (nal_hdr.nuh_layer_id > 0) {
@@ -1460,7 +1271,7 @@ de265_error decoder_context::process_reference_picture_set(slice_segment_header*
 {
   std::vector<int> removeReferencesList;
 
-  const int currentID = img->get_ID();
+  const uint32_t currentID = img->get_ID();
 
 
   if (isIRAP(nal_unit_type) && NoRaslOutputFlag) {
@@ -1559,8 +1370,12 @@ de265_error decoder_context::process_reference_picture_set(slice_segment_header*
 
         if (hdr->delta_poc_msb_present_flag[i]) {
           int currentPictureMSB = img->PicOrderCntVal - hdr->slice_pic_order_cnt_lsb;
+          if (DeltaPocMsbCycleLt[i] > static_cast<uint32_t>(INT32_MAX) / current_sps->MaxPicOrderCntLsb) {
+            add_warning(DE265_WARNING_SLICEHEADER_INVALID, false);
+            return DE265_ERROR_CODED_PARAMETER_OUT_OF_RANGE;
+          }
           pocLt += currentPictureMSB
-            - DeltaPocMsbCycleLt[i] * current_sps->MaxPicOrderCntLsb;
+            - static_cast<int>(DeltaPocMsbCycleLt[i] * current_sps->MaxPicOrderCntLsb);
         }
 
         if (UsedByCurrPicLt[i]) {
@@ -1720,7 +1535,7 @@ de265_error decoder_context::process_reference_picture_set(slice_segment_header*
 
   // 4. any picture that is not marked for reference is put into the "UnusedForReference" state
 
-  for (int i=0;i<dpb.size();i++)
+  for (size_t i=0;i<dpb.size();i++)
     if (i>=picInAnyList.size() || !picInAnyList[i])        // no reference
       {
         de265_image* dpbimg = dpb.get_image(i);
@@ -1803,12 +1618,17 @@ bool decoder_context::construct_reference_picture_lists(slice_segment_header* hd
   for (rIdx=0; rIdx<hdr->num_ref_idx_l0_active; rIdx++) {
     int idx = hdr->ref_pic_list_modification_flag_l0 ? hdr->list_entry_l0[rIdx] : rIdx;
 
+    if (idx >= NumRpsCurrTempList0) {
+      add_warning(DE265_WARNING_FAULTY_REFERENCE_PICTURE_LIST, false);
+      return false;
+    }
+
     hdr->RefPicList[0][rIdx] = RefPicListTemp0[idx];
     hdr->LongTermRefPic[0][rIdx] = isLongTerm[0][idx];
 
     // remember POC of referenced image (needed in motion.c, derive_collocated_motion_vector)
     de265_image* img_0_rIdx = dpb.get_image(hdr->RefPicList[0][rIdx]);
-    if (img_0_rIdx==NULL) {
+    if (img_0_rIdx==nullptr) {
       return false;
     }
     hdr->RefPicList_POC[0][rIdx] = img_0_rIdx->PicOrderCntVal;
@@ -1856,12 +1676,17 @@ bool decoder_context::construct_reference_picture_lists(slice_segment_header* hd
     for (rIdx=0; rIdx<hdr->num_ref_idx_l1_active; rIdx++) {
       int idx = hdr->ref_pic_list_modification_flag_l1 ? hdr->list_entry_l1[rIdx] : rIdx;
 
+      if (idx >= NumRpsCurrTempList1) {
+        add_warning(DE265_WARNING_FAULTY_REFERENCE_PICTURE_LIST, false);
+        return false;
+      }
+
       hdr->RefPicList[1][rIdx] = RefPicListTemp1[idx];
       hdr->LongTermRefPic[1][rIdx] = isLongTerm[1][idx];
 
       // remember POC of referenced imaged (needed in motion.c, derive_collocated_motion_vector)
       de265_image* img_1_rIdx = dpb.get_image(hdr->RefPicList[1][rIdx]);
-      if (img_1_rIdx == NULL) { return false; }
+      if (img_1_rIdx == nullptr) { return false; }
       hdr->RefPicList_POC[1][rIdx] = img_1_rIdx->PicOrderCntVal;
       hdr->RefPicList_PicState[1][rIdx] = img_1_rIdx->PicState;
     }
@@ -1942,6 +1767,10 @@ void decoder_context::run_postprocessing_filters_parallel(image_unit* imgunit)
     //apply_sample_adaptive_offset(img);
   }
 
+  // The original intention was to skip wait_for_completion() if there is no SAO task,
+  // but it does not work as intended. (TODO: check why)
+  (void)waitForCompletion;
+
   img->wait_for_completion();
 }
 
@@ -1956,7 +1785,7 @@ de265_error decoder_context::push_picture_to_output_queue(image_unit* imgunit)
 {
   de265_image* outimg = imgunit->img;
 
-  if (outimg==NULL) { return DE265_OK; }
+  if (outimg==nullptr) { return DE265_OK; }
 
 
   // push image into output queue
@@ -2111,7 +1940,7 @@ bool decoder_context::process_slice_segment_header(slice_segment_header* hdr,
   else {
     // claims to be not the first slice, but there is no active image available
 
-    if (img == NULL) {
+    if (img == nullptr) {
       return false;
     }
   }
@@ -2184,7 +2013,7 @@ void decoder_context::set_limit_TID(int max_tid)
 
 int decoder_context::change_framerate(int more)
 {
-  if (current_sps == NULL) { return framerate_ratio; }
+  if (current_sps == nullptr) { return framerate_ratio; }
 
   int highestTid = get_highest_TID();
 
@@ -2263,56 +2092,35 @@ void decoder_context::calc_tid_and_framerate_ratio()
 
 void error_queue::add_warning(de265_error warning, bool once)
 {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
   // check if warning was already shown
-  bool add=true;
   if (once) {
-    for (int i=0;i<nWarningsShown;i++) {
-      if (warnings_shown[i] == warning) {
-        add=false;
-        break;
-      }
+    if (std::find(warnings_shown.begin(), warnings_shown.end(), warning) != warnings_shown.end()) {
+      return;
     }
+    warnings_shown.push_back(warning);
   }
-
-  if (!add) {
-    return;
-  }
-
-
-  // if this is a one-time warning, remember that it was shown
-
-  if (once) {
-    if (nWarningsShown < MAX_WARNINGS) {
-      warnings_shown[nWarningsShown++] = warning;
-    }
-  }
-
 
   // add warning to output queue
-
-  if (nWarnings == MAX_WARNINGS) {
-    warnings[MAX_WARNINGS-1] = DE265_WARNING_WARNING_BUFFER_FULL;
+  if (warnings.size() >= MAX_WARNINGS) {
+    warnings.back() = DE265_WARNING_WARNING_BUFFER_FULL;
     return;
   }
 
-  warnings[nWarnings++] = warning;
-}
-
-error_queue::error_queue()
-{
-  nWarnings = 0;
-  nWarningsShown = 0;
+  warnings.push_back(warning);
 }
 
 de265_error error_queue::get_warning()
 {
-  if (nWarnings==0) {
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  if (warnings.empty()) {
     return DE265_OK;
   }
 
-  de265_error warn = warnings[0];
-  nWarnings--;
-  memmove(warnings, &warnings[1], nWarnings*sizeof(de265_error));
+  de265_error warn = warnings.front();
+  warnings.erase(warnings.begin());
 
   return warn;
 }

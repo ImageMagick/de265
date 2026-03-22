@@ -1,16 +1,14 @@
 include(CMakePackageConfigHelpers)
 
-set (libde265_sources 
+set (libde265_sources
   alloc_pool.cc
   bitstream.cc
   cabac.cc
-  configparam.cc
   contextmodel.cc
   de265.cc
   deblock.cc
   decctx.cc
   dpb.cc
-  en265.cc
   fallback-dct.cc
   fallback-motion.cc 
   fallback.cc
@@ -42,14 +40,12 @@ set (libde265_headers
   alloc_pool.h
   bitstream.h
   cabac.h
-  configparam.h
   de265-version.h
   contextmodel.h
   de265.h
   deblock.h
   decctx.h
   dpb.h
-  en265.h
   fallback-dct.h
   fallback-motion.h
   fallback.h
@@ -78,7 +74,6 @@ set (libde265_headers
 
 set (libde265_public_headers
   de265.h
-  en265.h
   ${CMAKE_CURRENT_BINARY_DIR}/de265-version.h
 )
 
@@ -92,40 +87,27 @@ endif()
 
 add_definitions(-DLIBDE265_EXPORTS)
 
-add_subdirectory (encoder)
-
-check_c_source_compiles(
-  "#if !defined(__x86_64) && !defined(__i386__) \
-  && !defined(_M_IX86) && !defined(_M_AMD64)
-  #error not x86
-  #endif
-  int main(){return 0;}"
-  HAVE_X86)
+if (ENABLE_ENCODER)
+  add_subdirectory (encoder)
+  list(APPEND libde265_sources en265.cc)
+  list(APPEND libde265_headers en265.h)
+  list(APPEND libde265_public_headers en265.h)
+endif()
 
 if(HAVE_X86)
-  if (MSVC)
-    set(SUPPORTS_SSE2 1)
-    set(SUPPORTS_SSSE3 1)
-    set(SUPPORTS_SSE4_1 1)
-  else (MSVC)
-    check_c_compiler_flag(-msse2 SUPPORTS_SSE2)
-    check_c_compiler_flag(-mssse3 SUPPORTS_SSSE3)
-    check_c_compiler_flag(-msse4.1 SUPPORTS_SSE4_1)
-  endif (MSVC)
-
-  if(SUPPORTS_SSE4_1)
-    add_definitions(-DHAVE_SSE4_1)
-  endif()
   if(SUPPORTS_SSE4_1 OR (SUPPORTS_SSE2 AND SUPPORTS_SSSE3))
     add_subdirectory (x86)
   endif()
 endif()
 
-add_library(de265 ${libde265_sources} ${libde265_public_headers} ${ENCODER_OBJECTS} ${X86_OBJECTS})
-target_link_libraries(de265 PRIVATE Threads::Threads)
+if(HAVE_ARM)
+  add_subdirectory (arm)
+endif()
+
+add_library(de265 ${libde265_sources} ${libde265_public_headers} ${ENCODER_OBJECTS} ${X86_OBJECTS} ${ARM_OBJECTS})
 target_include_directories(de265 PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-write_basic_package_version_file(libde265ConfigVersion.cmake COMPATIBILITY ExactVersion)
+write_basic_package_version_file(libde265-config-version.cmake COMPATIBILITY ExactVersion)
 
 # --- debug output
 
@@ -148,6 +130,11 @@ elseif (DE265_LOG_LEVEL MATCHES "trace")
 endif()
 
 
+set_target_properties(de265 PROPERTIES
+  VERSION "${DE265_LIBRARY_VERSION}"
+  SOVERSION "${DE265_SOVERSION}"
+)
+
 if (WIN32)
     set_target_properties(de265 PROPERTIES PREFIX "lib")
 endif()
@@ -168,7 +155,7 @@ if (BUILD_FRAMEWORK)
     MACOSX_RPATH TRUE)
 endif()
 
-install(TARGETS de265 EXPORT libde265Config
+install(TARGETS de265 EXPORT libde265-config
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -178,9 +165,9 @@ install(TARGETS de265 EXPORT libde265Config
 )
 
 install(FILES ${libde265_public_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libde265)
-install(EXPORT libde265Config DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libde265")
+install(EXPORT libde265-config DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libde265")
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libde265ConfigVersion.cmake DESTINATION
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libde265-config-version.cmake DESTINATION
     "${CMAKE_INSTALL_LIBDIR}/cmake/libde265")
 
 
@@ -199,6 +186,5 @@ else()
     set(includedir "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
 endif()
 
-set(VERSION ${PROJECT_VERSION}) # so that the replacement in libde265.pc will work with both autotools and CMake
 configure_file(../libde265.pc.in ${CMAKE_CURRENT_BINARY_DIR}/libde265.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libde265.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)

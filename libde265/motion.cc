@@ -139,8 +139,13 @@ void mc_luma(const base_context* ctx,
       src_stride = ref_stride;
     }
     else {
+      // Extend fill width to a multiple of 16 so that SIMD over-reads
+      // in qpel interpolation hit valid (edge-clamped) data.
+      int fill_width = ((extra_left + nPbW + extra_right + 15) & ~15);
+      if (fill_width > MAX_CU_SIZE+16) fill_width = MAX_CU_SIZE+16;
+
       for (int y=-extra_top;y<nPbH+extra_bottom;y++) {
-        for (int x=-extra_left;x<nPbW+extra_right;x++) {
+        for (int x=-extra_left;x<fill_width - extra_left;x++) {
 
           int xA = Clip3(0,w-1,x + xIntOffsL);
           int yA = Clip3(0,h-1,y + yIntOffsL);
@@ -204,7 +209,7 @@ void mc_chroma(const base_context* ctx,
         yIntOffsC>=0 && nPbHC+yIntOffsC<=hC) {
       ctx->acceleration.put_hevc_epel(out, out_stride,
                                       &ref[xIntOffsC + yIntOffsC*ref_stride], ref_stride,
-                                      nPbWC,nPbHC, 0,0, NULL, bit_depth_C);
+                                      nPbWC,nPbHC, 0,0, nullptr, bit_depth_C);
     }
     else
       {
@@ -235,8 +240,13 @@ void mc_chroma(const base_context* ctx,
       src_stride = ref_stride;
     }
     else {
+      // Extend fill width to a multiple of 16 so that SIMD over-reads
+      // in epel interpolation hit valid (edge-clamped) data.
+      int fill_width = ((extra_left + nPbWC + extra_right + 15) & ~15);
+      if (fill_width > MAX_CU_SIZE+16) fill_width = MAX_CU_SIZE+16;
+
       for (int y=-extra_top;y<nPbHC+extra_bottom;y++) {
-        for (int x=-extra_left;x<nPbWC+extra_right;x++) {
+        for (int x=-extra_left;x<fill_width - extra_left;x++) {
 
           int xA = Clip3(0,wC-1,x + xIntOffsC);
           int yA = Clip3(0,hC-1,y + yIntOffsC);
@@ -347,15 +357,27 @@ void generate_inter_prediction_samples(base_context* ctx,
   }
 
 
+  // Fill prediction samples with mid-grey in intermediate precision.
+  // Used on error paths where the reference picture is unavailable or mismatched.
+  auto fill_pred_samples = [&](int l) {
+    const int16_t fill = 1 << 13; // mid-grey: (1 << (bd-1)) << (14-bd) for any bd
+    for (int y = 0; y < nPbH; y++)
+      for (int x = 0; x < nPbW; x++)
+        predSamplesL[l][y * nCS + x] = fill;
+    if (img->get_chroma_format() != de265_chroma_mono) {
+      int cW = nPbW / SubWidthC;
+      int cH = nPbH / SubHeightC;
+      for (int y = 0; y < cH; y++)
+        for (int x = 0; x < cW; x++) {
+          predSamplesC[0][l][y * nCS + x] = fill;
+          predSamplesC[1][l][y * nCS + x] = fill;
+        }
+    }
+  };
+
   for (int l=0;l<2;l++) {
     if (predFlag[l]) {
       // 8.5.3.2.1
-
-      if (vi->refIdx[l] >= MAX_NUM_REF_PICS) {
-        img->integrity = INTEGRITY_DECODING_ERRORS;
-        ctx->add_warning(DE265_WARNING_NONEXISTING_REFERENCE_PICTURE_ACCESSED, false);
-        return;
-      }
 
       const de265_image* refPic = ctx->get_image(shdr->RefPicList[l][vi->refIdx[l]]);
 
@@ -364,23 +386,25 @@ void generate_inter_prediction_samples(base_context* ctx,
       if (!refPic || refPic->PicState == UnusedForReference) {
         img->integrity = INTEGRITY_DECODING_ERRORS;
         ctx->add_warning(DE265_WARNING_NONEXISTING_REFERENCE_PICTURE_ACCESSED, false);
-
-        // TODO: fill predSamplesC with black or grey
+        fill_pred_samples(l);
       }
       else if (refPic->get_width(0) != sps->pic_width_in_luma_samples ||
                refPic->get_height(0) != sps->pic_height_in_luma_samples ||
                img->get_chroma_format() != refPic->get_chroma_format()) {
         img->integrity = INTEGRITY_DECODING_ERRORS;
         ctx->add_warning(DE265_WARNING_REFERENCE_IMAGE_SIZE_DOES_NOT_MATCH_SPS, false);
+        fill_pred_samples(l);
       }
       else if (img->get_bit_depth(0) != refPic->get_bit_depth(0) ||
                img->get_bit_depth(1) != refPic->get_bit_depth(1)) {
         img->integrity = INTEGRITY_DECODING_ERRORS;
         ctx->add_warning(DE265_WARNING_REFERENCE_IMAGE_BIT_DEPTH_DOES_NOT_MATCH, false);
+        fill_pred_samples(l);
       }
       else if (img->get_chroma_format() != refPic->get_chroma_format()) {
         img->integrity = INTEGRITY_DECODING_ERRORS;
         ctx->add_warning(DE265_WARNING_REFERENCE_IMAGE_CHROMA_FORMAT_DOES_NOT_MATCH, false);
+        fill_pred_samples(l);
       }
       else {
         // 8.5.3.2.2
@@ -1069,7 +1093,7 @@ void derive_zero_motion_vector_candidates(const slice_segment_header* shdr,
 
     if (shdr->slice_type==SLICE_TYPE_P) {
       newCand->refIdx[0] = refIdx;
-      newCand->refIdx[1] = -1;
+      newCand->refIdx[1] = 0;
       newCand->predFlag[0] = 1;
       newCand->predFlag[1] = 0;
     }
@@ -1256,7 +1280,7 @@ void derive_collocated_motion_vectors(base_context* ctx,
 
 
 
-  int slice_hdr_idx = colImg->get_SliceHeaderIndex(xColPb,yColPb);
+  uint16_t slice_hdr_idx = colImg->get_SliceHeaderIndex(xColPb,yColPb);
   if (slice_hdr_idx >= colImg->slices.size()) {
     ctx->add_warning(DE265_WARNING_INVALID_SLICE_HEADER_INDEX_ACCESS, false);
 
@@ -1439,8 +1463,8 @@ void derive_combined_bipredictive_merging_candidates(const base_context* ctx,
       logtrace(LogMotion,"l0Cand:\n"); logmvcand(l0Cand);
       logtrace(LogMotion,"l1Cand:\n"); logmvcand(l1Cand);
 
-      const de265_image* img0 = l0Cand.predFlag[0] ? ctx->get_image(shdr->RefPicList[0][l0Cand.refIdx[0]]) : NULL;
-      const de265_image* img1 = l1Cand.predFlag[1] ? ctx->get_image(shdr->RefPicList[1][l1Cand.refIdx[1]]) : NULL;
+      const de265_image* img0 = l0Cand.predFlag[0] ? ctx->get_image(shdr->RefPicList[0][l0Cand.refIdx[0]]) : nullptr;
+      const de265_image* img1 = l1Cand.predFlag[1] ? ctx->get_image(shdr->RefPicList[1][l1Cand.refIdx[1]]) : nullptr;
 
       if (l0Cand.predFlag[0] && !img0) {
         return; // TODO error
@@ -1491,8 +1515,8 @@ void get_merge_candidate_list_without_step_9(base_context* ctx,
 
   //int xOrigP = xP;
   //int yOrigP = yP;
-  int nOrigPbW = nPbW;
-  int nOrigPbH = nPbH;
+  //int nOrigPbW = nPbW;
+  //int nOrigPbH = nPbH;
 
   int singleMCLFlag; // single merge-candidate-list (MCL) flag
 
@@ -1602,7 +1626,7 @@ void get_merge_candidate_list(base_context* ctx,
         mergeCandList[i].predFlag[1] &&
         nPbW+nPbH==12)
       {
-        mergeCandList[i].refIdx[1]   = -1;
+        mergeCandList[i].refIdx[1]   = 0;
         mergeCandList[i].predFlag[1] = 0;
       }
   }
@@ -1630,7 +1654,7 @@ void derive_luma_motion_merge_mode(base_context* ctx,
   // 8.5.3.1.1 / 9.
 
   if (out_vi->predFlag[0] && out_vi->predFlag[1] && nPbW+nPbH==12) {
-    out_vi->refIdx[1] = -1;
+    out_vi->refIdx[1] = 0;
     out_vi->predFlag[1] = 0;
   }
 }
@@ -1700,7 +1724,7 @@ void derive_spatial_luma_vector_prediction(base_context* ctx,
 
   // the POC we want to reference in this PB
   const de265_image* tmpimg = ctx->get_image(shdr->RefPicList[X][ refIdxLX ]);
-  if (tmpimg==NULL) { return; }
+  if (tmpimg==nullptr) { return; }
   const int referenced_POC = tmpimg->PicOrderCntVal;
 
   for (int k=0;k<=1;k++) {
@@ -1715,23 +1739,13 @@ void derive_spatial_luma_vector_prediction(base_context* ctx,
       logtrace(LogMotion,"MVP A%d=\n",k);
       logmvcand(vi);
 
-      const de265_image* imgX = NULL;
+      const de265_image* imgX = nullptr;
       if (vi.predFlag[X]) {
-        // check for input data validity
-        if (vi.refIdx[X]<0 || vi.refIdx[X] >= MAX_NUM_REF_PICS) {
-          return;
-        }
-
         imgX = ctx->get_image(shdr->RefPicList[X][ vi.refIdx[X] ]);
       }
 
-      const de265_image* imgY = NULL;
+      const de265_image* imgY = nullptr;
       if (vi.predFlag[Y]) {
-        // check for input data validity
-        if (vi.refIdx[Y]<0 || vi.refIdx[Y] >= MAX_NUM_REF_PICS) {
-          return;
-        }
-
         imgY = ctx->get_image(shdr->RefPicList[Y][ vi.refIdx[Y] ]);
       }
 
@@ -1801,7 +1815,10 @@ void derive_spatial_luma_vector_prediction(base_context* ctx,
       assert(refPicList>=0);
 
       const de265_image* refPicA = ctx->get_image(shdr->RefPicList[refPicList][refIdxA ]);
-      const de265_image* refPicX = ctx->get_image(shdr->RefPicList[X         ][refIdxLX]);
+
+#ifdef DE265_LOG_TRACE
+      const de265_image* refPicX = ctx->get_image(shdr->RefPicList[X][refIdxLX]);
+#endif
 
       //int picStateA = shdr->RefPicList_PicState[refPicList][refIdxA ];
       //int picStateX = shdr->RefPicList_PicState[X         ][refIdxLX];
@@ -1863,21 +1880,13 @@ void derive_spatial_luma_vector_prediction(base_context* ctx,
       logtrace(LogMotion,"MVP B%d=\n",k);
       logmvcand(vi);
 
-      const de265_image* imgX = NULL;
+      const de265_image* imgX = nullptr;
       if (vi.predFlag[X]) {
-        if (vi.refIdx[X] < 0 || vi.refIdx[X] >= MAX_NUM_REF_PICS) {
-          return;
-        }
-
         imgX = ctx->get_image(shdr->RefPicList[X][ vi.refIdx[X] ]);
       }
 
-      const de265_image* imgY = NULL;
+      const de265_image* imgY = nullptr;
       if (vi.predFlag[Y]) {
-        if (vi.refIdx[Y] < 0 || vi.refIdx[Y] >= MAX_NUM_REF_PICS) {
-          return;
-        }
-
         imgY = ctx->get_image(shdr->RefPicList[Y][ vi.refIdx[Y] ]);
       }
 
@@ -1928,12 +1937,6 @@ void derive_spatial_luma_vector_prediction(base_context* ctx,
 
         const PBMotion& vi = img->get_mv_info(xB[k],yB[k]);
 
-        if (vi.refIdx[X] >= MAX_NUM_REF_PICS) {
-          img->integrity = INTEGRITY_DECODING_ERRORS;
-          ctx->add_warning(DE265_WARNING_NONEXISTING_REFERENCE_PICTURE_ACCESSED, false);
-          return; // error   // TODO: we actually should make sure that this is never set to an out-of-range value
-        }
-
         if (vi.predFlag[X]==1 &&
             shdr->LongTermRefPic[X][refIdxLX] == shdr->LongTermRefPic[X][ vi.refIdx[X] ]) {
           out_availableFlagLXN[B]=1;
@@ -1965,7 +1968,7 @@ void derive_spatial_luma_vector_prediction(base_context* ctx,
         int isLongTermB = shdr->LongTermRefPic[refPicList][refIdxB ];
         int isLongTermX = shdr->LongTermRefPic[X         ][refIdxLX];
 
-        if (refPicB==NULL || refPicX==NULL) {
+        if (refPicB==nullptr || refPicX==nullptr) {
           img->decctx->add_warning(DE265_WARNING_NONEXISTING_REFERENCE_PICTURE_ACCESSED,false);
           img->integrity = INTEGRITY_DECODING_ERRORS;
         }
@@ -2143,17 +2146,9 @@ void motion_vectors_and_ref_indices(base_context* ctx,
           (inter_pred_idc == PRED_L1 && l==1)) {
         out_vi->refIdx[l] = motion.refIdx[l];
         out_vi->predFlag[l] = 1;
-
-        if (motion.refIdx[l] >= MAX_NUM_REF_PICS) {
-          out_vi->refIdx[l] = 0;
-
-          img->integrity = INTEGRITY_DECODING_ERRORS;
-          ctx->add_warning(DE265_WARNING_NONEXISTING_REFERENCE_PICTURE_ACCESSED, false);
-          return;
-        }
       }
       else {
-        out_vi->refIdx[l] = -1;
+        out_vi->refIdx[l] = 0;
         out_vi->predFlag[l] = 0;
       }
 

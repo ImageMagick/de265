@@ -6,8 +6,8 @@ includedir=@includedir@
 Name: libde265
 Description: H.265/HEVC video decoder.
 URL: https://github.com/strukturag/libde265
-Version: @VERSION@
+Version: @PROJECT_VERSION@
 Requires:
-Libs: -lde265 -L${libdir}
+Libs: -L${libdir} -lde265
 Libs.private: @LIBS_PRIVATE@
 Cflags: -I${includedir}

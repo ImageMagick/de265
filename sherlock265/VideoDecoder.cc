@@ -24,7 +24,7 @@
   SOFTWARE.
 */
 
-#include "VideoDecoder.hh"
+#include "VideoDecoder.h"
 #ifdef HAVE_VIDEOGFX
 #include <libvideogfx.hh>
 #endif
@@ -141,6 +141,7 @@ void VideoDecoder::decoder_loop()
               uint8_t buf[4096];
               int buf_size = fread(buf,1,sizeof(buf),mFH);
               int err = de265_push_data(ctx,buf,buf_size ,0,0);
+	      (void)err;
             }
             else if (!more)
               {

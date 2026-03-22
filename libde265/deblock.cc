@@ -127,7 +127,7 @@ void markPredictionBlockBoundary(de265_image* img, int x0,int y0,
 }
 
 
-bool derive_edgeFlags_CTBRow(de265_image* img, int ctby)
+bool derive_edgeFlags_CTBRow(de265_image* img, uint16_t ctby)
 {
   const seq_parameter_set& sps = img->get_sps();
   const pic_parameter_set& pps = img->get_pps();
@@ -140,8 +140,8 @@ bool derive_edgeFlags_CTBRow(de265_image* img, int ctby)
   int ctbshift = sps.Log2CtbSizeY;
 
 
-  int cb_y_start = ( ctby    << sps.Log2CtbSizeY) >> sps.Log2MinCbSizeY;
-  int cb_y_end   = ((ctby+1) << sps.Log2CtbSizeY) >> sps.Log2MinCbSizeY;
+  uint16_t cb_y_start = ( ctby    << sps.Log2CtbSizeY) >> sps.Log2MinCbSizeY;
+  uint16_t cb_y_end   = ((ctby+1) << sps.Log2CtbSizeY) >> sps.Log2MinCbSizeY;
 
   cb_y_end = std::min(cb_y_end, sps.PicHeightInMinCbsY);
 
@@ -253,8 +253,8 @@ void derive_boundaryStrength(de265_image* img, bool vertical, int yStart,int yEn
   xEnd = libde265_min(xEnd,img->get_deblk_width());
   yEnd = libde265_min(yEnd,img->get_deblk_height());
 
-  int TUShift = img->get_sps().Log2MinTrafoSize;
-  int TUStride= img->get_sps().PicWidthInTbsY;
+  //int TUShift = img->get_sps().Log2MinTrafoSize;
+  //int TUStride= img->get_sps().PicWidthInTbsY;
 
   for (int y=yStart;y<yEnd;y+=yIncr)
     for (int x=xStart;x<xEnd;x+=xIncr) {
@@ -296,15 +296,6 @@ void derive_boundaryStrength(de265_image* img, bool vertical, int yStart,int yEn
             slice_segment_header* shdrQ = img->get_SliceHeader(xDi   ,yDi);
 
 	    if (shdrP && shdrQ) {
-
-        if (mviP.refIdx[0] > MAX_NUM_REF_PICS ||
-            mviP.refIdx[1] > MAX_NUM_REF_PICS ||
-            mviQ.refIdx[0] > MAX_NUM_REF_PICS ||
-            mviQ.refIdx[1] > MAX_NUM_REF_PICS) {
-          // we cannot return an error from here, so just set a valid boundaryStrength value and continue;
-          img->set_deblk_bS(xDi, yDi, 0);
-          continue;
-        }
 
 	      int refPicP0 = mviP.predFlag[0] ? shdrP->RefPicList[0][ mviP.refIdx[0] ] : -1;
 	      int refPicP1 = mviP.predFlag[1] ? shdrP->RefPicList[1][ mviP.refIdx[1] ] : -1;
@@ -369,7 +360,7 @@ void derive_boundaryStrength(de265_image* img, bool vertical, int yStart,int yEn
 	      }
 	    }
 	    else {
-	      bS = 0; // if shdrP==NULL or shdrQ==NULL
+	      bS = 0; // if shdrP==nullptr or shdrQ==nullptr
 	    }
 
             /*
@@ -541,45 +532,39 @@ void edge_filtering_luma_internal(de265_image* img, bool vertical,
 
         int dE=0, dEp=0, dEq=0;
 
-        if (vertical || !vertical) {
-          int dp0 = abs_value(p[0][2] - 2*p[0][1] + p[0][0]);
-          int dp3 = abs_value(p[3][2] - 2*p[3][1] + p[3][0]);
-          int dq0 = abs_value(q[0][2] - 2*q[0][1] + q[0][0]);
-          int dq3 = abs_value(q[3][2] - 2*q[3][1] + q[3][0]);
+        int dp0 = abs_value(p[0][2] - 2*p[0][1] + p[0][0]);
+        int dp3 = abs_value(p[3][2] - 2*p[3][1] + p[3][0]);
+        int dq0 = abs_value(q[0][2] - 2*q[0][1] + q[0][0]);
+        int dq3 = abs_value(q[3][2] - 2*q[3][1] + q[3][0]);
 
-          int dpq0 = dp0 + dq0;
-          int dpq3 = dp3 + dq3;
+        int dpq0 = dp0 + dq0;
+        int dpq3 = dp3 + dq3;
 
-          int dp = dp0 + dp3;
-          int dq = dq0 + dq3;
-          int d  = dpq0+ dpq3;
+        int dp = dp0 + dp3;
+        int dq = dq0 + dq3;
+        int d = dpq0 + dpq3;
 
-          if (d<beta) {
-            //int dpq = 2*dpq0;
-            bool dSam0 = (2*dpq0 < (beta>>2) &&
-                          abs_value(p[0][3]-p[0][0])+abs_value(q[0][0]-q[0][3]) < (beta>>3) &&
-                          abs_value(p[0][0]-q[0][0]) < ((5*tc+1)>>1));
+        if (d < beta) {
+          //int dpq = 2*dpq0;
+          bool dSam0 = (2 * dpq0 < (beta >> 2) &&
+                        abs_value(p[0][3]-p[0][0]) + abs_value(q[0][0]-q[0][3]) < (beta >> 3) &&
+                        abs_value(p[0][0]-q[0][0]) < ((5 * tc + 1) >> 1));
 
-            bool dSam3 = (2*dpq3 < (beta>>2) &&
-                          abs_value(p[3][3]-p[3][0])+abs_value(q[3][0]-q[3][3]) < (beta>>3) &&
-                          abs_value(p[3][0]-q[3][0]) < ((5*tc+1)>>1));
+          bool dSam3 = (2 * dpq3 < (beta >> 2) &&
+                        abs_value(p[3][3]-p[3][0]) + abs_value(q[3][0]-q[3][3]) < (beta >> 3) &&
+                        abs_value(p[3][0]-q[3][0]) < ((5 * tc + 1) >> 1));
 
-            if (dSam0 && dSam3) {
-              dE=2;
-            }
-            else {
-              dE=1;
-            }
-
-            if (dp < ((beta + (beta>>1))>>3)) { dEp=1; }
-            if (dq < ((beta + (beta>>1))>>3)) { dEq=1; }
-
-            logtrace(LogDeblock,"dE:%d dEp:%d dEq:%d\n",dE,dEp,dEq);
+          if (dSam0 && dSam3) {
+            dE = 2;
           }
-        }
-        else {
-          // TODO
-          assert(0);
+          else {
+            dE = 1;
+          }
+
+          if (dp < ((beta + (beta >> 1)) >> 3)) { dEp = 1; }
+          if (dq < ((beta + (beta >> 1)) >> 3)) { dEq = 1; }
+
+          logtrace(LogDeblock, "dE:%d dEp:%d dEq:%d\n", dE, dEp, dEq);
         }
 
 
@@ -1011,7 +996,6 @@ void add_deblocking_tasks(image_unit* imgunit)
 
   int nRows = img->get_sps().PicHeightInCtbsY;
 
-  int n=0;
   img->thread_start(nRows*2);
 
   for (int pass=0;pass<2;pass++)
@@ -1025,8 +1009,7 @@ void add_deblocking_tasks(image_unit* imgunit)
           task->vertical = (pass==0);
 
           imgunit->tasks.push_back(task);
-          add_task(&ctx->thread_pool_, task);
-          n++;
+          ctx->thread_pool_.add_task(task);
         }
     }
 }
@@ -1034,7 +1017,7 @@ void add_deblocking_tasks(image_unit* imgunit)
 
 void apply_deblocking_filter(de265_image* img) // decoder_context* ctx)
 {
-  decoder_context* ctx = img->decctx;
+  //decoder_context* ctx = img->decctx;
 
   char enabled_deblocking = derive_edgeFlags(img);
 
