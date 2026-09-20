@@ -8,9 +8,13 @@ libde265 is an open source implementation of the h.265 video codec.
 It is written from scratch and has a plain C API to enable
 a simple integration into other software.
 
-libde265 supports WPP and tile-based multithreading and includes SSE optimizations.
-The decoder includes all features of the Main profile and correctly decodes almost all
-conformance streams (see [[wiki page](https://github.com/strukturag/libde265/wiki/Decoder-conformance)]).
+libde265 supports WPP and tile-based multithreading and includes SSE, AVX2 and AVX-512
+optimizations.
+The decoder includes all features of the Main profile, and it supports Main 10 and the
+Range Extensions: bit depths from 8 to 16 bit (independently for luma and chroma), the
+4:2:0, 4:2:2, 4:4:4 and monochrome chroma formats, and the Range Extensions coding tools.
+It correctly decodes almost all conformance streams (see
+[[wiki page](https://github.com/strukturag/libde265/wiki/Decoder-conformance)]).
 
 A list of supported features are available in the [wiki](https://github.com/strukturag/libde265/wiki/Supported-decoding-features).
 
@@ -100,6 +104,15 @@ You can disable building of the example programs by running `cmake` with
   -DENABLE_SHERLOCK265=off Do not build the sherlock265 visual inspection program.
 </pre>
 
+Optimized (non-Debug) builds hide all symbols except the public API, which makes
+the decoder faster and the shared library smaller. The encoder and the internal
+development tools need the internal symbols, so enabling them keeps everything
+exported. To export all symbols even from an optimized decoder-only build, run
+`cmake` with
+<pre>
+  -DFORCE_FULL_VISIBILITY=on
+</pre>
+
 Additional logging information can be turned on and off using these `./configure` flags:
 <pre>
   -DDE265_LOG_LEVEL={error;info;debug;trace}
@@ -150,7 +163,7 @@ Libde265 has been integrated into these applications:
 
 ## Packaging status
 
-[![libde265 packaging status](https://repology.org/badge/vertical-allrepos/libde265.svg?exclude_unsupported=1&columns=3&exclude_sources=modules,site&header=libde265%20packaging%20status)](https://repology.org/project/libheif/versions)
+[![libde265 packaging status](https://repology.org/badge/vertical-allrepos/libde265.svg?exclude_unsupported=1&columns=3&exclude_sources=modules,site&header=libde265%20packaging%20status)](https://repology.org/project/libde265/versions)
 
 
 License
